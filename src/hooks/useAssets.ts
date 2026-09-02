@@ -13,11 +13,12 @@ export function useAssets() {
       setLoading(false);
       return;
     }
+    const client = supabase;
 
     setLoading(true);
     setError(null);
 
-    const { data, error: loadError } = await supabase
+    const { data, error: loadError } = await client
       .from("assets")
       .select("*")
       .order("updated_at", { ascending: false });
@@ -36,7 +37,7 @@ export function useAssets() {
         }
 
         const { data: signed, error: signedError } =
-          await supabase.storage
+          await client.storage
             .from(ASSET_BUCKET)
             .createSignedUrl(asset.storage_path, 3600);
 

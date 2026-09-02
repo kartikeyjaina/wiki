@@ -27,12 +27,13 @@ export function useActivity(entityType: EntityType, entityId?: string) {
 
   useEffect(() => {
     if (!supabase || !entityId) return;
-    const channel = supabase
+    const client = supabase;
+    const channel = client
       .channel(`activity:${entityType}:${entityId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "activity_events", filter: `entity_id=eq.${entityId}` }, () => void load())
       .subscribe();
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, [entityId, entityType, load]);
 

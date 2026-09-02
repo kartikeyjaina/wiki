@@ -31,12 +31,13 @@ export function useComments(entityType: EntityType, entityId?: string) {
 
   useEffect(() => {
     if (!supabase || !entityId) return;
-    const channel = supabase
+    const client = supabase;
+    const channel = client
       .channel(`comments:${entityType}:${entityId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "comments", filter: `entity_id=eq.${entityId}` }, () => void load())
       .subscribe();
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, [entityId, entityType, load]);
 
