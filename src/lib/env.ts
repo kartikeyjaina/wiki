@@ -1,0 +1,14 @@
+export const env = {
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL ?? "",
+  supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+  supabaseServiceRoleKey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ?? "",
+  assetBucket: import.meta.env.VITE_SUPABASE_ASSET_BUCKET ?? "brand-assets",
+  allowedDomains: (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS ?? "futurelab.com").split(",").map((domain) => domain.trim()).filter(Boolean),
+  appName: import.meta.env.VITE_APP_NAME ?? "futurelab wiki",
+};
+
+export function isValidDomain(email?: string | null) {
+  if (!email) return false;
+  const [, domain] = email.toLowerCase().split("@", 2);
+  return Boolean(domain && env.allowedDomains.includes(domain));
+}
