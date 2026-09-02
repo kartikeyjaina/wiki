@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAssets } from "@/hooks/useAssets";
 import { formatStatus, shortDate } from "@/lib/utils";
+import { downloadAsset } from "@/lib/storage";
 
 export function AssetDetail() {
   const { id } = useParams();
@@ -16,7 +17,22 @@ export function AssetDetail() {
 
   return (
     <div>
-      <PageHeader eyebrow="Asset" title={asset.name} description={asset.usage_guidance ?? undefined} action={asset.storage_path ? <Button>Download</Button> : null} />
+     <PageHeader
+  eyebrow="Asset"
+  title={asset.name}
+  description={asset.usage_guidance ?? undefined}
+  action={
+    asset.storage_path ? (
+      <Button
+        onClick={() =>
+          void downloadAsset(asset.storage_path!, asset.name)
+        }
+      >
+        Download
+      </Button>
+    ) : null
+  }
+/>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid min-h-[420px] place-items-center rounded-xl border border-border bg-surface p-8">
           {asset.preview_url ? <img src={asset.preview_url} alt="" className="max-h-[70vh] max-w-full object-contain" /> : <p className="text-sm text-muted">No preview available.</p>}

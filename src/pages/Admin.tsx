@@ -6,6 +6,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { env } from "@/lib/env";
 import { getMissingEnvKeys, hasRealSupabaseEnv } from "@/lib/real-env";
 import { uploadAssetFile } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 
 export function Admin() {
   const { profile, isAdmin } = useProfile();
@@ -13,25 +14,82 @@ export function Admin() {
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
+  
   async function handleUpload() {
-    if (!selectedFile) {
-      setUploadMessage("Choose a file to upload into the asset bucket.");
-      return;
-    }
-
-    setUploading(true);
-    setUploadMessage(null);
-
-    try {
-      const path = await uploadAssetFile(selectedFile, "approved");
-      setUploadMessage(`Upload complete: ${path}`);
-    } catch (error) {
-      setUploadMessage(error instanceof Error ? error.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
+  if (!selectedFile) {
+    setUploadMessage("Choose a file first.");
+    return;
   }
+
+  if (!supabase) {
+    setUploadMessage("Supabase is not configured.");
+    return;
+  }
+
+  if (!profile?.id) {
+    setUploadMessage("Your profile could not be loaded.");
+    return;
+  }
+
+  setUploadMessage("Uploading...");
+
+  try {
+    // 1. Upload the actual file to Supabase Storage.
+    const storagePath = await uploadAssetFile(selectedFile, "approved");
+
+    // 2. Create the asset database record.
+    const { data: asset, error: assetError } = await supabase
+      .from("assets")
+      .insert({
+        name: selectedFile.name,
+        asset_type: selectedFile.type || "application/octet-stream",
+        status: "approved",
+        storage_path: storagePath,
+        version: "1",
+        owner_id: profile.id,
+        metadata: {
+          original_name: selectedFile.name,
+          mime_type: selectedFile.type || null,
+          size: selectedFile.size,
+        },
+      })
+      .select()
+      .single();
+
+    if (assetError) {
+      throw assetError;
+    }
+
+    // 3. Create the first asset version.
+    const { error: versionError } = await supabase
+      .from("asset_versions")
+      .insert({
+        asset_id: asset.id,
+        version: "1",
+        storage_path: storagePath,
+        created_by: profile.id,
+        notes: "Initial upload",
+      });
+
+    if (versionError) {
+      throw versionError;
+    }
+
+    setUploadMessage(`Upload complete: ${selectedFile.name}`);
+
+    setSelectedFile(null);
+
+    // If your file input has a ref, reset it here.
+  } catch (uploadError) {
+    console.error(uploadError);
+
+    setUploadMessage(
+      uploadError instanceof Error
+        ? `Upload failed: ${uploadError.message}`
+        : "Upload failed."
+    );
+  }
+}
 
   if (!isAdmin && hasRealSupabaseEnv()) {
     return <EmptyState title="Admin access required." description="Only users with the admin role can manage assets, visibility, and governance settings." />;
