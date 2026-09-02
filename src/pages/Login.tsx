@@ -77,7 +77,10 @@ export function Login() {
         setMessage("Signed in successfully.");
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Authentication failed.");
+      const message = submitError instanceof Error ? submitError.message : "Authentication failed.";
+      setError(message.includes("already registered")
+        ? "This email is already registered. Check your inbox for the confirmation email or sign in."
+        : message);
     } finally {
       setLoading(false);
     }

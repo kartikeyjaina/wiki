@@ -3,7 +3,7 @@ export const env = {
   supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
   supabaseServiceRoleKey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ?? "",
   assetBucket: import.meta.env.VITE_SUPABASE_ASSET_BUCKET ?? "brand-assets",
-  allowedDomains: (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS ?? "futurelab.com").split(",").map((domain: string) => domain.trim()).filter(Boolean),
+  allowedDomains: (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS ?? "gmail.com,futurelab.com").split(",").map((domain: string) => domain.trim()).filter(Boolean),
   appName: import.meta.env.VITE_APP_NAME ?? "futurelab wiki",
 };
 
