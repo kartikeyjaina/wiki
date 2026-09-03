@@ -9,10 +9,9 @@ import { Ideas } from "@/pages/Ideas";
 import { IdeaDetail } from "@/pages/IdeaDetail";
 import { IdeaLeaderboard } from "@/pages/IdeaLeaderboard";
 import { NewIdea } from "@/pages/NewIdea";
-import { People } from "@/pages/People";
 import { SearchPage } from "@/pages/Search";
-import { Brand } from "@/pages/Brand";
 import { Projects } from "@/pages/Projects";
+import { ProjectDetail } from "@/pages/ProjectDetail";
 import { Admin } from "@/pages/Admin";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -32,7 +31,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
-        <Route path="brand" element={<Brand />} />
+        <Route path="brand" element={<Navigate to="/assets" replace />} />
         <Route path="assets" element={<Assets />} />
         <Route path="assets/:id" element={<AssetDetail />} />
         <Route path="ideas" element={<Ideas />} />
@@ -40,8 +39,9 @@ export default function App() {
         <Route path="ideas/leaderboard" element={<IdeaLeaderboard />} />
         <Route path="ideas/:id" element={<IdeaDetail />} />
         <Route path="projects" element={<Projects />} />
-        <Route path="people" element={<People />} />
-        <Route path="people/:id" element={<People />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
+        <Route path="people" element={<Navigate to="/" replace />} />
+        <Route path="people/:id" element={<Navigate to="/" replace />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="admin/*" element={isAdmin || !configured ? <Admin /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

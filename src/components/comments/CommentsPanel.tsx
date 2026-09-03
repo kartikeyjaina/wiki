@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { shortDate } from "@/lib/utils";
 
 export function CommentsPanel({ entityType, entityId }: { entityType: EntityType; entityId: string }) {
-  const { comments, create, update, remove, error } = useComments(entityType, entityId);
+  const { comments, loading, create, update, remove, error } = useComments(entityType, entityId);
   const [body, setBody] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
   const roots = useMemo(() => comments.filter((comment) => !comment.parent_id), [comments]);
@@ -32,7 +32,7 @@ export function CommentsPanel({ entityType, entityId }: { entityType: EntityType
       </div>
       {failure || error ? <p className="mt-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium" role="alert">{failure ?? error}</p> : null}
       <div className="mt-6 space-y-4">
-        {roots.length ? roots.map((comment) => <CommentItem key={comment.id} comment={comment} replies={replies.filter((reply) => reply.parent_id === comment.id)} onReply={create} onUpdate={update} onDelete={remove} />) : <p className="text-sm text-muted">No comments yet.</p>}
+        {loading ? <p className="text-sm text-muted">Loading comments...</p> : roots.length ? roots.map((comment) => <CommentItem key={comment.id} comment={comment} replies={replies.filter((reply) => reply.parent_id === comment.id)} onReply={create} onUpdate={update} onDelete={remove} />) : <p className="text-sm text-muted">No comments yet.</p>}
       </div>
     </section>
   );

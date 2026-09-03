@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { env, isValidDomain } from "@/lib/env";
+import { guestModeEnabled, signInAsDevelopmentGuest } from "@/lib/devGuest";
 import { supabase } from "@/lib/supabase";
 
 export function Login() {
@@ -13,6 +14,20 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  async function handleGuestLogin() {
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+
+    try {
+      await signInAsDevelopmentGuest();
+    } catch (guestError) {
+      setError(guestError instanceof Error ? guestError.message : "Development guest sign-in failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,6 +142,15 @@ export function Login() {
         <button type="button" className="mt-5 w-full text-center text-sm font-semibold text-muted" onClick={() => setMode((current) => (current === "login" ? "signup" : "login"))}>
           {mode === "login" ? "Need an account? Create one" : "Already have an account? Sign in"}
         </button>
+
+        {guestModeEnabled ? (
+          <div className="mt-8 border-t border-border pt-6">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Development only</p>
+            <Button type="button" variant="secondary" className="w-full" disabled={loading} onClick={() => void handleGuestLogin()}>
+              Continue as Guest
+            </Button>
+          </div>
+        ) : null}
       </section>
     </main>
   );

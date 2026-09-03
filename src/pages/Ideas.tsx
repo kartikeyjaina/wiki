@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IdeaCard } from "@/components/ideas/IdeaCard";
 import { useIdeas } from "@/hooks/useIdeas";
+import { useProfile } from "@/hooks/useProfile";
 import { rankIdeas, type LeaderboardMode } from "@/lib/ranking";
 
 const tabs: { label: string; mode: LeaderboardMode | "new" | "mine" }[] = [
@@ -18,12 +19,13 @@ const tabs: { label: string; mode: LeaderboardMode | "new" | "mine" }[] = [
 
 export function Ideas() {
   const { ideas, loading, error, reload } = useIdeas();
+  const { session } = useProfile();
   const [mode, setMode] = useState<(typeof tabs)[number]["mode"]>("trending");
   const visible = useMemo(() => {
     if (mode === "new") return [...ideas].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    if (mode === "mine") return [];
+    if (mode === "mine") return ideas.filter((idea) => idea.author_id === session?.user.id);
     return rankIdeas(ideas, mode);
-  }, [ideas, mode]);
+  }, [ideas, mode, session?.user.id]);
 
   return (
     <div>
@@ -42,7 +44,7 @@ export function Ideas() {
         <Button variant="secondary" size="sm" asChild><Link to="/ideas/leaderboard">Leaderboard</Link></Button>
       </div>
       {error ? <p className="mb-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium">Ideas could not be loaded: {error}</p> : null}
-      {loading ? <p className="text-sm text-muted">Loading ideas...</p> : visible.length ? <div className="space-y-4">{visible.map((idea) => <IdeaCard key={idea.id} idea={idea} onReconcile={reload} />)}</div> : <EmptyState title={mode === "mine" ? "No ideas from you yet." : "No ideas yet."} description={mode === "mine" ? "Your submitted ideas will appear here after you create them." : "This is the quiet part. Submit the first idea and start the conversation."} action={<Button asChild><Link to="/ideas/new">Submit an idea</Link></Button>} />}
+      {loading ? <p className="text-sm text-muted">Loading ideas...</p> : visible.length ? <div className="space-y-4">{visible.map((idea) => <IdeaCard key={idea.id} idea={idea} onReconcile={reload} />)}</div> : <EmptyState title={mode === "mine" ? "No ideas from you yet." : "No ideas yet."} description={mode === "mine" ? "Create an idea to see it in this list." : "Submit the first idea and start the conversation."} action={<Button asChild><Link to="/ideas/new">Submit an idea</Link></Button>} />}
     </div>
   );
 }

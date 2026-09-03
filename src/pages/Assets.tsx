@@ -5,12 +5,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAssets } from "@/hooks/useAssets";
 
-const categories = ["all", "logos", "typography", "colours", "imagery", "templates", "social", "product & web", "events", "people", "governance"];
-
 export function Assets() {
   const { assets, loading, error } = useAssets();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const categories = useMemo(() => ["all", ...Array.from(new Set(assets.map((asset) => asset.category?.trim().toLowerCase()).filter((value): value is string => Boolean(value)))).sort()], [assets]);
 
   const filtered = useMemo(() => {
     return assets.filter((asset) => {
@@ -23,11 +22,11 @@ export function Assets() {
   return (
     <div>
       <PageHeader eyebrow="Asset Library" title="Find the right brand asset fast." description="Search, filter, preview, and download approved files without inventing metadata around them." />
-      <div className="mb-6 flex flex-col gap-3 md:flex-row">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search assets..." className="h-12 flex-1 rounded-md border border-border px-4 outline-none focus:border-foreground" />
-        <select value={category} onChange={(event) => setCategory(event.target.value)} className="h-12 rounded-md border border-border bg-white px-4 capitalize outline-none focus:border-foreground">
-          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
+      </div>
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="Asset categories">
+        {categories.map((item) => <button key={item} type="button" onClick={() => setCategory(item)} className={`shrink-0 rounded-pill px-4 py-2 text-sm font-semibold capitalize ${category === item ? "bg-foreground text-white" : "bg-surface text-muted"}`}>{item}</button>)}
       </div>
       {error ? <p className="mb-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium">Assets could not be loaded: {error}</p> : null}
       {loading ? (

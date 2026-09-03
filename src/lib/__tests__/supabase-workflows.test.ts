@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { isValidDomain } from "../env";
 import { rankIdeas } from "../ranking";
+import { getIdeaTransitions, ideaStatusLabels } from "../idea-workflow";
 import type { Idea } from "@/types/domain";
 
 describe("real environment and domain authorization", () => {
-  it("accepts the configured Futurelab domain and blocks other domains", () => {
+  it("accepts the configured Futurelab and Gmail domains", () => {
     expect(isValidDomain("alex@futurelab.com")).toBe(true);
-    expect(isValidDomain("guest@gmail.com")).toBe(false);
+    expect(isValidDomain("guest@gmail.com")).toBe(true);
   });
 });
 
 describe("idea ranking and moderation rules", () => {
+  it("allows only the next valid decision for each lifecycle state", () => {
+    expect(getIdeaTransitions("new").map((item) => item.status)).toEqual(["discussing", "declined"]);
+    expect(getIdeaTransitions("planned").map((item) => item.status)).toEqual(["in_progress"]);
+    expect(getIdeaTransitions("shipped")).toEqual([]);
+    expect(ideaStatusLabels.declined).toBe("Rejected");
+  });
+
   it("keeps ranking deterministic and weighted by score, comments, and status", () => {
     const ideas = [
       {

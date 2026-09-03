@@ -294,8 +294,34 @@ create policy "authors can delete own comments" on public.comments for delete to
 create policy "members can read projects" on public.projects for select to authenticated using (true);
 create policy "admins can manage projects" on public.projects for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read activity" on public.activity_events for select to authenticated using (true);
+create policy "members can record own activity" on public.activity_events for insert to authenticated with check (actor_id = auth.uid());
 create policy "admins can manage activity" on public.activity_events for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read reputation" on public.reputation_events for select to authenticated using (true);
 create policy "admins can manage reputation" on public.reputation_events for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read relationships" on public.entity_relationships for select to authenticated using (true);
 create policy "admins can manage relationships" on public.entity_relationships for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+insert into storage.buckets (id, name, public)
+values ('brand-assets', 'brand-assets', false)
+on conflict (id) do nothing;
+
+drop policy if exists "members can read brand assets" on storage.objects;
+create policy "members can read brand assets" on storage.objects
+for select to authenticated
+using (bucket_id = 'brand-assets');
+
+drop policy if exists "admins can upload brand assets" on storage.objects;
+create policy "admins can upload brand assets" on storage.objects
+for insert to authenticated
+with check (bucket_id = 'brand-assets' and public.is_admin());
+
+drop policy if exists "admins can update brand assets" on storage.objects;
+create policy "admins can update brand assets" on storage.objects
+for update to authenticated
+using (bucket_id = 'brand-assets' and public.is_admin())
+with check (bucket_id = 'brand-assets' and public.is_admin());
+
+drop policy if exists "admins can delete brand assets" on storage.objects;
+create policy "admins can delete brand assets" on storage.objects
+for delete to authenticated
+using (bucket_id = 'brand-assets' and public.is_admin());

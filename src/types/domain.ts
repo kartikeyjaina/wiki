@@ -15,7 +15,7 @@ export type AssetStatus = "approved" | "current" | "draft" | "deprecated" | "tem
 
 export type EntityType = "wiki_page" | "asset" | "idea" | "comment" | "project" | "person";
 
-export type ProjectStatus = "planned" | "in_progress" | "shipped" | "parked";
+export type ProjectStatus = "planned" | "in_progress" | "blocked" | "shipped" | "parked" | "archived";
 
 export interface Profile {
   id: string;

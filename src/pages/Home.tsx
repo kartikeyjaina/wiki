@@ -1,4 +1,4 @@
-import { Archive, BookOpen, FolderKanban, Lightbulb, Users } from "lucide-react";
+import { Archive, FolderKanban, Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -8,11 +8,9 @@ import { useIdeas } from "@/hooks/useIdeas";
 import { rankIdeas } from "@/lib/ranking";
 
 const areas = [
-  { label: "Knowledge", href: "/brand", icon: BookOpen },
   { label: "Assets", href: "/assets", icon: Archive },
   { label: "Ideas", href: "/ideas", icon: Lightbulb },
   { label: "Projects", href: "/projects", icon: FolderKanban },
-  { label: "People", href: "/people", icon: Users },
 ];
 
 export function Home() {
@@ -28,7 +26,7 @@ export function Home() {
         title="Where Futurelab works, thinks, creates and shares."
         description="A quiet internal workspace for knowledge, brand assets, ideas, projects, and the relationships between them."
       />
-      <section className="grid gap-3 md:grid-cols-5">
+      <section className="grid gap-3 md:grid-cols-3">
         {areas.map((area) => {
           const Icon = area.icon;
           return (

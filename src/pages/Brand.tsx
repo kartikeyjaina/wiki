@@ -9,7 +9,7 @@ export function Brand() {
       <PageHeader
         eyebrow="Brand"
         title="A useful home for the Futurelab system."
-        description="The brand area organizes guidance around logo use, typography, colours, imagery, and voice. It is ready to connect to editable wiki pages and related assets."
+        description="Brand guidance and source files are available in the Assets library."
       />
       <div className="grid gap-4 md:grid-cols-2">
         {sections.map((section, index) => (

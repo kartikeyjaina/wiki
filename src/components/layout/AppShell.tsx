@@ -1,26 +1,26 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Archive, BookOpen, Home, Lightbulb, Menu, Search, Shield, SlidersHorizontal, Users } from "lucide-react";
+import { Archive, FolderKanban, Home, Lightbulb, Menu, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
+import { isDevelopmentGuest } from "@/lib/devGuest";
 import { supabase } from "@/lib/supabase";
 
 const navItems = [
   { label: "Home", href: "/", icon: Home },
-  { label: "Brand", href: "/brand", icon: BookOpen },
   { label: "Assets", href: "/assets", icon: Archive },
   { label: "Ideas", href: "/ideas", icon: Lightbulb },
-  { label: "Projects", href: "/projects", icon: Shield },
-  { label: "People", href: "/people", icon: Users },
+  { label: "Projects", href: "/projects", icon: FolderKanban },
 ];
 
 export function AppShell() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
-  const { profile, isAdmin } = useProfile();
+  const { profile, session, isAdmin } = useProfile();
+  const isGuest = isDevelopmentGuest(session);
   const visibleNavItems = isAdmin ? [...navItems, { label: "Admin", href: "/admin", icon: SlidersHorizontal }] : navItems;
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export function AppShell() {
             <span className="sr-only">Open navigation</span>
           </Button>
           <Button variant="secondary" className="hidden md:inline-flex" onClick={() => void supabase?.auth.signOut()}>
-            {profile?.display_name ?? "Profile"}
+            {isGuest ? "Development Guest" : profile?.display_name ?? "Profile"}
           </Button>
         </div>
         {mobileOpen ? (
@@ -122,8 +122,8 @@ export function AppShell() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-pill border border-border bg-white/95 p-1 shadow-soft backdrop-blur md:hidden" aria-label="Bottom">
-        {navItems.slice(0, 5).map((item) => {
+      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 rounded-pill border border-border bg-white/95 p-1 shadow-soft backdrop-blur md:hidden" aria-label="Bottom">
+        {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
