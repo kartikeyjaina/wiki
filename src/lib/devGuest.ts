@@ -2,7 +2,8 @@ import type { Session } from "@supabase/supabase-js";
 import { env } from "./env";
 import { supabase } from "./supabase";
 
-export const guestModeEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_GUEST_MODE === "true";
+const isAllowedDevelopmentEnvironment = import.meta.env.DEV || env.deploymentEnv === "preview";
+export const guestModeEnabled = isAllowedDevelopmentEnvironment && import.meta.env.VITE_ENABLE_GUEST_MODE === "true";
 
 export function isDevelopmentGuest(session: Session | null) {
   return guestModeEnabled && Boolean(env.devGuestEmail) && session?.user.email?.toLowerCase() === env.devGuestEmail.toLowerCase();

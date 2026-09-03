@@ -4,6 +4,7 @@ export const env = {
   assetBucket: import.meta.env.VITE_SUPABASE_ASSET_BUCKET ?? "brand-assets",
   allowedDomains: (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS ?? "gmail.com,futurelab.com").split(",").map((domain: string) => domain.trim()).filter(Boolean),
   appName: import.meta.env.VITE_APP_NAME ?? "futurelab wiki",
+  deploymentEnv: import.meta.env.VITE_VERCEL_ENV ?? "",
   devGuestEmail: import.meta.env.VITE_DEV_GUEST_EMAIL ?? "",
   devGuestPassword: import.meta.env.VITE_DEV_GUEST_PASSWORD ?? "",
 };
