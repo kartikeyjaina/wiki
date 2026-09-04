@@ -27,6 +27,7 @@
   --fl-radius-pill: 999px;
   --fl-shadow-soft: 0 18px 44px rgba(17,17,17,0.06);
   --fl-shadow-card: 0 4px 12px rgba(17,17,17,0.04), 0 16px 34px rgba(17,17,17,0.06);
+  --fl-shadow-card-hover: 0 8px 24px rgba(17,17,17,0.07), 0 28px 56px rgba(17,17,17,0.10);
   --fl-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --fl-card-pink: #FAD9DB;
   --fl-card-green: #CCF0DC;
@@ -49,7 +50,30 @@ h1, h2, h3, h4, .font-display { font-family: "Space Grotesk", "Inter", system-ui
 button, input, textarea, select { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--fl-text); outline-offset: 3px; }
 button, a { transition-timing-function: var(--fl-ease); }
-::selection { background: var(--fl-accent-soft); color: var(--fl-text); }
+::selection { background: var(--fl-card-blue); color: var(--fl-text); }
+
+@layer components {
+  .fl-card {
+    border: 1px solid var(--fl-line);
+    border-radius: var(--fl-radius-lg);
+    background: var(--fl-bg-soft);
+    box-shadow: var(--fl-shadow-card);
+    transition: transform 350ms var(--fl-ease), box-shadow 350ms var(--fl-ease), border-color 350ms var(--fl-ease), background-color 350ms var(--fl-ease);
+  }
+  .fl-card:hover { transform: translateY(-3px); border-color: var(--fl-line-hover); box-shadow: var(--fl-shadow-card-hover); }
+  .fl-card-pink:hover, .fl-card-pink[data-active="true"] { background: var(--fl-card-pink); }
+  .fl-card-green:hover, .fl-card-green[data-active="true"] { background: var(--fl-card-green); }
+  .fl-card-blue:hover, .fl-card-blue[data-active="true"] { background: var(--fl-card-blue); }
+  .fl-card-purple:hover, .fl-card-purple[data-active="true"] { background: var(--fl-card-purple); }
+  .fl-card-yellow:hover, .fl-card-yellow[data-active="true"] { background: var(--fl-card-yellow); }
+  .fl-accent-bar { border-left: 4px solid var(--fl-card-blue); padding-left: 1rem; }
+  .fl-chip { display: inline-flex; align-items: center; border: 1px solid rgba(0,0,0,0.08); border-radius: 999px; padding: 0.3rem 0.7rem; color: var(--fl-text); font-size: 0.75rem; font-weight: 600; }
+  .fl-chip-pink { background: var(--fl-card-pink); }
+  .fl-chip-green { background: var(--fl-card-green); }
+  .fl-chip-blue { background: var(--fl-card-blue); }
+  .fl-chip-purple { background: var(--fl-card-purple); }
+  .fl-chip-yellow { background: var(--fl-card-yellow); }
+}
 
 @keyframes ingredient-pulse {
   0% { opacity: 0.35; transform: scale(0.45); }
