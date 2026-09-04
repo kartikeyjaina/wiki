@@ -35,7 +35,6 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
-        <Route path="brand" element={<Navigate to="/assets" replace />} />
         <Route path="assets" element={<Assets />} />
         <Route path="assets/:id" element={<AssetDetail />} />
         <Route path="saved" element={<SavedAssets />} />
