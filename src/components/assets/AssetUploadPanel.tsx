@@ -13,7 +13,6 @@ import type { AssetCollection } from "@/types/domain";
 type DirectoryInputAttributes = InputHTMLAttributes<HTMLInputElement> & { webkitdirectory?: string };
 const directoryInputAttributes: DirectoryInputAttributes = { webkitdirectory: "" };
 const UPLOAD_CONCURRENCY = 3;
-
 type ClassifiedEntry = UploadEntry & { collectionId: string };
 
 export function AssetUploadPanel({ initialCollectionId = "", collectionLabel }: { initialCollectionId?: string; collectionLabel?: string }) {
@@ -37,17 +36,19 @@ export function AssetUploadPanel({ initialCollectionId = "", collectionLabel }: 
     });
   }, []);
 
-  useEffect(() => {
-    if (!defaultCollectionId) return;
-    setEntries((current) => current.map((entry) => ({ ...entry, collectionId: defaultCollectionId })));
-  }, [defaultCollectionId]);
-
   const queuedEntries = entries.filter((entry) => entry.state === "queued");
   const queuedCount = queuedEntries.length;
   const totalSize = entries.reduce((total, entry) => total + entry.size, 0);
-  const replaceSelection = (next: UploadEntry[]) => { setEntries(next.map((entry) => ({ ...entry, collectionId: initialCollectionId }))); setMessage(next.length ? null : "No files were found in that selection."); };
+  const replaceSelection = (next: UploadEntry[]) => {
+    setEntries(next.map((entry) => ({ ...entry, collectionId: defaultCollectionId })));
+    setMessage(next.length ? null : "No files were found in that selection.");
+  };
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => { replaceSelection(normalizeFileList(event.target.files ?? [])); event.target.value = ""; };
-  async function handleFolderSelect() { if (!supportsDirectoryPicker()) { folderInputRef.current?.click(); return; } try { replaceSelection(createUploadEntries(await selectDirectory())); } catch (error) { if (error instanceof DOMException && error.name === "AbortError") return; setMessage(error instanceof Error ? error.message : "The folder could not be opened."); } }
+  async function handleFolderSelect() {
+    if (!supportsDirectoryPicker()) { folderInputRef.current?.click(); return; }
+    try { replaceSelection(createUploadEntries(await selectDirectory())); }
+    catch (error) { if (error instanceof DOMException && error.name === "AbortError") return; setMessage(error instanceof Error ? error.message : "The folder could not be opened."); }
+  }
   async function handleDrop(event: DragEvent<HTMLDivElement>) { event.preventDefault(); setDragging(false); replaceSelection(createUploadEntries(await readDataTransferItems(event.dataTransfer.items))); }
   const updateEntry = (id: string, changes: Partial<ClassifiedEntry>) => setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, ...changes } : entry));
   const retryEntry = (id: string) => updateEntry(id, { state: "queued", progress: 0, message: undefined });
