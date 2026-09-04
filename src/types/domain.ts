@@ -46,6 +46,7 @@ export interface Idea {
 
 export interface Asset {
   id: string;
+  collection_id: string;
   name: string;
   category: string | null;
   asset_type: string;

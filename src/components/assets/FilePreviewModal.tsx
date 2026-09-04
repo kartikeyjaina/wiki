@@ -51,7 +51,7 @@ export function FilePreviewModal({ asset, onClose }: { asset: Asset | null; onCl
         <div className="min-h-[280px] flex-1 overflow-auto bg-surface p-5">
           {!asset.storage_path ? <UnsupportedPreview type={previewType} reason="This asset has no stored file to preview." /> : loading ? <p className="grid min-h-[240px] place-items-center text-sm text-muted">Creating secure preview...</p> : error ? <ErrorPreview message={error} /> : url ? <PreviewContent asset={asset} type={previewType} url={url} onError={setError} /> : <ErrorPreview message="Preview URL is unavailable." />}
         </div>
-        <footer className="flex justify-end gap-3 border-t border-border px-5 py-4"><Button variant="secondary" onClick={onClose}>Close</Button>{canDownload ? <Button onClick={() => void downloadAsset(asset.storage_path!, asset.name)}><Download className="h-4 w-4" /> Download</Button> : null}</footer>
+        <footer className="flex justify-end gap-3 border-t border-border px-5 py-4"><Button variant="secondary" onClick={onClose}>Close</Button>{canDownload ? <Button onClick={() => void downloadAsset(asset.storage_path!, String(asset.metadata?.original_name ?? asset.name))}><Download className="h-4 w-4" /> Download</Button> : null}</footer>
       </section>
     </div>
   );

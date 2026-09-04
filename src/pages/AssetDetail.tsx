@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
@@ -6,11 +7,18 @@ import { Badge } from "@/components/ui/Badge";
 import { useAssets } from "@/hooks/useAssets";
 import { formatStatus, shortDate } from "@/lib/utils";
 import { downloadAsset } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 
 export function AssetDetail() {
   const { id } = useParams();
   const { assets, loading } = useAssets();
   const asset = assets.find((item) => item.id === id);
+  const [collectionName, setCollectionName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supabase || !asset?.collection_id) return;
+    void supabase.from("asset_collections").select("name").eq("id", asset.collection_id).single().then(({ data }) => setCollectionName(data?.name ?? null));
+  }, [asset?.collection_id]);
 
   if (loading) return <p className="text-sm text-muted">Loading asset...</p>;
   if (!asset) return <EmptyState title="Asset not found." description="Only real imported or uploaded assets appear here." />;
@@ -24,9 +32,7 @@ export function AssetDetail() {
   action={
     asset.storage_path ? (
       <Button
-        onClick={() =>
-          void downloadAsset(asset.storage_path!, asset.name)
-        }
+        onClick={() => void downloadAsset(asset.storage_path!, String(asset.metadata?.original_name ?? asset.name))}
       >
         Download
       </Button>
@@ -41,6 +47,7 @@ export function AssetDetail() {
           <Badge>{formatStatus(asset.status)}</Badge>
           <dl className="space-y-4 text-sm">
             <Meta label="Type" value={asset.asset_type} />
+            <Meta label="Collection" value={collectionName} />
             <Meta label="Category" value={asset.category} />
             <Meta label="Version" value={asset.version} />
             <Meta label="Last reviewed" value={shortDate(asset.last_reviewed_at)} />
