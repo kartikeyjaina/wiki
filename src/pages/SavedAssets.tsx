@@ -5,6 +5,10 @@ import { supabase } from "@/lib/supabase";
 import type { Asset } from "@/types/domain";
 import { useEffect, useState } from "react";
 
+interface SavedAssetRow {
+  asset: Asset | null;
+}
+
 export function SavedAssets() {
   const [saved, setSaved] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,11 +28,8 @@ export function SavedAssets() {
           console.error("Could not load saved assets:", error);
           setSaved([]);
         } else {
-          setSaved(
-            (data ?? [])
-              .map((item) => item.asset)
-              .filter(Boolean) as Asset[],
-          );
+          const rows = (data ?? []) as unknown as SavedAssetRow[];
+          setSaved(rows.flatMap(({ asset }) => (asset ? [asset] : [])));
         }
         setLoading(false);
       });
