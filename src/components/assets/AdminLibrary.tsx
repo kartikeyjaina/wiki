@@ -28,8 +28,14 @@ export function AdminLibrary() {
 
   async function load() {
     if (!supabase) return;
-    const [kitResult, collectionResult] = await Promise.all([supabase.from("featured_kits").select("*").order("display_order"), supabase.from("asset_collections").select("*").order("display_order")]);
-    if (kitResult.error || collectionResult.error) { setMessage((kitResult.error ?? collectionResult.error)?.message ?? "Library data could not be loaded."); return; }
+    const [kitResult, collectionResult] = await Promise.all([
+      supabase.from("featured_kits").select("*").order("display_order"),
+      supabase.from("asset_collections").select("*").order("display_order"),
+    ]);
+    if (kitResult.error || collectionResult.error) {
+      setMessage((kitResult.error ?? collectionResult.error)?.message ?? "Library data could not be loaded.");
+      return;
+    }
     setKits((kitResult.data ?? []) as FeaturedKit[]);
     setCollections((collectionResult.data ?? []) as AssetCollection[]);
   }
@@ -38,45 +44,112 @@ export function AdminLibrary() {
 
   function startKit(item?: FeaturedKit) {
     setEditingKit(item ?? null);
-    setKitDraft(item ? { name: item.name, description: item.description, display_order: item.display_order, accent: item.accent, is_visible: item.is_visible, is_featured: item.is_featured } : { name: "", description: "", display_order: kits.length + 1, accent: "sage", is_visible: true, is_featured: true });
-    if (item && supabase) void supabase.from("featured_kit_collections").select("collection_id").eq("kit_id", item.id).then(({ data }) => setKitCollections((data ?? []).map((row) => row.collection_id as string)));
-    else setKitCollections([]);
+    setKitDraft(item ? {
+      name: item.name,
+      description: item.description,
+      display_order: item.display_order,
+      accent: item.accent,
+      is_visible: item.is_visible,
+      is_featured: item.is_featured,
+    } : {
+      name: "",
+      description: "",
+      display_order: kits.length + 1,
+      accent: "sage",
+      is_visible: true,
+      is_featured: true,
+    });
+    if (item && supabase) {
+      void supabase.from("featured_kit_collections").select("collection_id").eq("kit_id", item.id)
+        .then(({ data }) => setKitCollections((data ?? []).map((row) => row.collection_id as string)));
+    } else {
+      setKitCollections([]);
+    }
   }
 
   function startCollection(item?: AssetCollection) {
     setEditingCollection(item ?? null);
-    setCollectionDraft(item ? { name: item.name, description: item.description, display_order: item.display_order, accent: item.accent, is_visible: item.is_visible } : { name: "", description: "", display_order: collections.length + 1, accent: "sage", is_visible: true });
+    setCollectionDraft(item ? {
+      name: item.name,
+      description: item.description,
+      display_order: item.display_order,
+      accent: item.accent,
+      is_visible: item.is_visible,
+    } : {
+      name: "",
+      description: "",
+      display_order: collections.length + 1,
+      accent: "sage",
+      is_visible: true,
+    });
   }
 
   async function saveKit(event: FormEvent) {
     event.preventDefault();
     if (!supabase || !kitDraft.name.trim()) return;
     setBusy(true);
-    const payload = { ...kitDraft, name: kitDraft.name.trim(), description: kitDraft.description?.trim() ?? "", ...(editingKit ? {} : { slug: slugify(kitDraft.name) }) };
-    const result = editingKit ? await supabase.from("featured_kits").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingKit.id) : await supabase.from("featured_kits").insert(payload);
-    if (!result.error && editingKit) {
-      const clearResult = await supabase.from("featured_kit_collections").delete().eq("kit_id", editingKit.id);
-      const relationshipResult = kitCollections.length ? await supabase.from("featured_kit_collections").insert(kitCollections.map((collection_id) => ({ kit_id: editingKit.id, collection_id }))) : { error: null };
-      if (clearResult.error || relationshipResult.error) setMessage((clearResult.error ?? relationshipResult.error)?.message ?? "Kit relationships could not be saved.");
+    setMessage(null);
+
+    try {
+      const payload = {
+        ...kitDraft,
+        name: kitDraft.name.trim(),
+        description: kitDraft.description?.trim() ?? "",
+        ...(editingKit ? {} : { slug: slugify(kitDraft.name) }),
+      };
+      const result = editingKit
+        ? await supabase.from("featured_kits").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingKit.id)
+        : await supabase.from("featured_kits").insert(payload).select("id").single();
+      if (result.error) throw result.error;
+
+      const kitId = editingKit?.id ?? (result.data as { id: string }).id;
+      if (editingKit) {
+        const clearResult = await supabase.from("featured_kit_collections").delete().eq("kit_id", kitId);
+        if (clearResult.error) throw clearResult.error;
+      }
+      if (kitCollections.length) {
+        const relationshipResult = await supabase.from("featured_kit_collections").insert(
+          kitCollections.map((collection_id) => ({ kit_id: kitId, collection_id })),
+        );
+        if (relationshipResult.error) {
+          if (!editingKit) await supabase.from("featured_kits").delete().eq("id", kitId);
+          throw relationshipResult.error;
+        }
+      }
+
+      setMessage(editingKit ? "Kit updated." : "Kit created.");
+      setEditingKit(null);
+      setKitCollections([]);
+      void load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Kit could not be saved.");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-    if (result.error) setMessage(result.error.message);
-    else { setMessage(editingKit ? "Kit updated." : "Kit created."); setEditingKit(null); void load(); }
   }
 
   async function saveCollection(event: FormEvent) {
     event.preventDefault();
     if (!supabase || !collectionDraft.name.trim()) return;
     setBusy(true);
-    const payload = { ...collectionDraft, name: collectionDraft.name.trim(), description: collectionDraft.description?.trim() ?? "", ...(editingCollection ? {} : { slug: slugify(collectionDraft.name) }) };
-    const result = editingCollection ? await supabase.from("asset_collections").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingCollection.id) : await supabase.from("asset_collections").insert(payload);
+    setMessage(null);
+    const payload = {
+      ...collectionDraft,
+      name: collectionDraft.name.trim(),
+      description: collectionDraft.description?.trim() ?? "",
+      ...(editingCollection ? {} : { slug: slugify(collectionDraft.name) }),
+    };
+    const result = editingCollection
+      ? await supabase.from("asset_collections").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingCollection.id)
+      : await supabase.from("asset_collections").insert(payload);
     setBusy(false);
     if (result.error) setMessage(result.error.message);
     else { setMessage(editingCollection ? "Collection updated." : "Collection created."); setEditingCollection(null); void load(); }
   }
 
   async function uploadPackage(event: ChangeEvent<HTMLInputElement>, target: FeaturedKit) {
-    const file = event.target.files?.[0]; event.target.value = "";
+    const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file || !supabase) return;
     setBusy(true);
     try {
@@ -84,9 +157,13 @@ export function AdminLibrary() {
       const result = await supabase.from("featured_kits").update({ package_storage_path: path, package_size: file.size, mime_type: file.type || "application/zip", updated_at: new Date().toISOString() }).eq("id", target.id);
       if (result.error) { await supabase.storage.from(ASSET_BUCKET).remove([path]); throw result.error; }
       if (target.package_storage_path) await supabase.storage.from(ASSET_BUCKET).remove([target.package_storage_path]);
-      setMessage(`${target.name} package uploaded successfully.`); void load();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Package upload failed."); }
-    finally { setBusy(false); }
+      setMessage(`${target.name} package uploaded successfully.`);
+      void load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Package upload failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function archiveCollection(item: AssetCollection) {
