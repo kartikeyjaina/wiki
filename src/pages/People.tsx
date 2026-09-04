@@ -110,18 +110,23 @@ export function People() {
             />
 
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-  { Icon: FolderKanban, label: "Owned projects", value: stats.projects },
-  { Icon: Lightbulb, label: "Ideas", value: stats.ideas },
-  { Icon: Users, label: "Comments", value: stats.comments },
-  { Icon: Activity, label: "Assets", value: stats.assets },
-].map(({ Icon, label, value }) => (
-                <div key={String(label)} className="rounded-xl border border-border bg-white p-5">
-                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">{String(label)}</span><Icon className="h-4 w-4 text-muted" /></div>
-                  <p className="mt-3 font-display text-2xl font-bold">{String(value)}</p>
-                </div>
-              ))}
-            </section>
+  {[
+    { Icon: FolderKanban, label: "Owned projects", value: stats.projects },
+    { Icon: Lightbulb, label: "Ideas", value: stats.ideas },
+    { Icon: Users, label: "Comments", value: stats.comments },
+    { Icon: Activity, label: "Assets", value: stats.assets },
+  ].map(({ Icon, label, value }) => (
+    <div key={label} className="rounded-xl border border-border bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-muted" />
+      </div>
+      <p className="mt-3 font-display text-2xl font-bold">{value}</p>
+    </div>
+  ))}
+</section>
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
               <section className="rounded-xl border border-border bg-white p-6">
