@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -16,7 +16,7 @@ export function NewIdea() {
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  async function submit(event: React.FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (submitting) return;
     if (title.trim().length < 8) return setError("Give the idea a clear title.");
@@ -27,28 +27,24 @@ export function NewIdea() {
     setError(null);
     setSubmitting(true);
     try {
-      const { data: duplicate, error: duplicateError } = await supabase.from("ideas").select("id").ilike("title", title.trim()).limit(1);
-      if (duplicateError) throw duplicateError;
-      if (duplicate?.length) {
-        setError("An idea with a very similar title already exists.");
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError("Sign in to submit an idea.");
         return;
       }
 
-      const { data, error: insertError } = await supabase
-        .from("ideas")
-        .insert({ title: title.trim(), description: description.trim(), why_it_matters: why.trim() || null, optional_links: links.trim() || null, author_id: user.id, raw_category: category.trim() })
-        .select("id")
-        .single();
+      const { data, error: insertError } = await supabase.rpc("create_idea_if_title_available", {
+        p_title: title.trim(),
+        p_description: description.trim(),
+        p_why_it_matters: why.trim(),
+        p_optional_links: links.trim(),
+        p_author_id: user.id,
+        p_raw_category: category.trim(),
+      });
 
       if (insertError) throw insertError;
       setSaved(true);
-      navigate(`/ideas/${data.id}`);
+      navigate(`/ideas/${data}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "The idea could not be submitted.");
     } finally {
@@ -73,6 +69,6 @@ export function NewIdea() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="block text-sm font-semibold text-foreground"><span className="mb-2 block">{label}</span>{children}</label>;
 }
