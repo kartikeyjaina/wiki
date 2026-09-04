@@ -16,9 +16,8 @@ const areas = [
 
 export function Home() {
   const { ideas } = useIdeas();
-  const { assets } = useAssets();
   const trending = rankIdeas(ideas, "trending").slice(0, 3);
-  const recentAssets = assets.slice(0, 3);
+  const { assets: recentAssets } = useAssets({ limit: 3 });
 
   return (
     <div>

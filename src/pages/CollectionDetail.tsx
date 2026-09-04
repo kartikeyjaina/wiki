@@ -7,19 +7,23 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
-import { useAssets } from "@/hooks/useAssets";
+import { useCollectionAssets } from "@/hooks/useCollectionAssets";
 import type { AssetCollection } from "@/types/domain";
 
 export function CollectionDetail() {
   const { slug } = useParams();
   const { isAdmin } = useProfile();
-  const { assets, loading: assetsLoading, error: assetsError } = useAssets();
   const [collection, setCollection] = useState<AssetCollection | null>(null);
   const [collectionLoading, setCollectionLoading] = useState(true);
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
-
+  const {
+    assets,
+    loading: assetsLoading,
+    error: assetsError,
+  } = useCollectionAssets(collection?.id);
+  
   useEffect(() => {
     if (!supabase || !slug) { setCollectionLoading(false); return; }
     void supabase.from("asset_collections").select("*").eq("slug", slug).single().then(({ data, error }) => {
@@ -29,13 +33,22 @@ export function CollectionDetail() {
   }, [slug]);
 
   const collectionAssets = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return assets.filter((asset) => {
-      if (asset.collection?.slug !== slug) return false;
-      const metadata = asset.metadata ? Object.values(asset.metadata).join(" ") : "";
-      return !normalizedQuery || `${asset.name} ${asset.category ?? ""} ${asset.asset_type} ${metadata}`.toLowerCase().includes(normalizedQuery);
-    });
-  }, [assets, query, slug]);
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) return assets;
+
+  return assets.filter((asset) => {
+    const metadata = asset.metadata
+      ? Object.values(asset.metadata).join(" ")
+      : "";
+
+    const searchable = `${asset.name} ${
+      asset.category ?? ""
+    } ${asset.asset_type} ${metadata}`.toLowerCase();
+
+    return searchable.includes(normalizedQuery);
+  });
+}, [assets, query]);
 
   function updateQuery(value: string) {
     const next = new URLSearchParams(searchParams);
