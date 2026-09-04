@@ -9,9 +9,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  test: {
-    exclude: ["**/node_modules/**", "**/e2e/**", "**/.git/**"],
-  },
   build: {
     rollupOptions: {
       output: {
