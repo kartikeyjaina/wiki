@@ -154,6 +154,15 @@ create table public.projects (
   updated_at timestamptz not null default now()
 );
 
+create table public.project_todos (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  title text not null check (char_length(trim(title)) > 0),
+  completed boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.activity_events (
   id uuid primary key default gen_random_uuid(),
   entity_type entity_type not null,
@@ -193,6 +202,7 @@ create index comments_entity_idx on public.comments(entity_type, entity_id);
 create index activity_entity_idx on public.activity_events(entity_type, entity_id, created_at desc);
 create index assets_category_idx on public.assets(category);
 create index assets_status_idx on public.assets(status);
+create index project_todos_project_id_idx on public.project_todos(project_id);
 
 create or replace view public.idea_feed as
 select
@@ -253,6 +263,7 @@ alter table public.ideas enable row level security;
 alter table public.idea_votes enable row level security;
 alter table public.comments enable row level security;
 alter table public.projects enable row level security;
+alter table public.project_todos enable row level security;
 alter table public.activity_events enable row level security;
 alter table public.reputation_events enable row level security;
 alter table public.entity_relationships enable row level security;
@@ -293,6 +304,8 @@ create policy "authors can delete own comments" on public.comments for delete to
 
 create policy "members can read projects" on public.projects for select to authenticated using (true);
 create policy "admins can manage projects" on public.projects for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "members can read project todos" on public.project_todos for select to authenticated using (true);
+create policy "admins can manage project todos" on public.project_todos for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read activity" on public.activity_events for select to authenticated using (true);
 create policy "members can record own activity" on public.activity_events for insert to authenticated with check (actor_id = auth.uid());
 create policy "admins can manage activity" on public.activity_events for all to authenticated using (public.is_admin()) with check (public.is_admin());

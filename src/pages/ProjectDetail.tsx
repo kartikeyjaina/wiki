@@ -7,27 +7,32 @@ import { Badge } from "@/components/ui/Badge";
 import { useProjects } from "@/hooks/useProjects";
 import { useProfile } from "@/hooks/useProfile";
 import { formatStatus } from "@/lib/utils";
-import type { ProjectStatus } from "@/types/domain";
-
-const projectStatuses: ProjectStatus[] = ["planned", "in_progress", "blocked", "shipped", "archived"];
+import { useSearchParams } from "react-router-dom";
+import { CommentsPanel } from "@/components/comments/CommentsPanel";
+import { ProjectStageControl } from "@/components/projects/ProjectStageControl";
+import { ProjectTodoList } from "@/components/projects/ProjectTodoList";
+import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
+import { recordActivity } from "@/lib/activity";
 
 export function ProjectDetail() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { projects, loading, update } = useProjects();
   const { isAdmin } = useProfile();
   const project = projects.find((item) => item.id === id);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<ProjectStatus>("planned");
   const [error, setError] = useState<string | null>(null);
 
   if (loading) return <p className="text-sm text-muted">Loading project...</p>;
   if (!project) return <EmptyState title="Project not found." description="Only stored projects appear here." />;
   const currentProject = project;
 
-  function startEditing() { setTitle(currentProject.title); setDescription(currentProject.description ?? ""); setStatus(currentProject.status); setEditing(true); }
-  async function save() { try { await update(currentProject.id, { title: title.trim(), description: description.trim(), status }); setEditing(false); setError(null); } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Project could not be updated."); } }
+  const tab = searchParams.get("tab") === "discussion" || searchParams.get("tab") === "todo" ? searchParams.get("tab") : "overview";
+  function startEditing() { setTitle(currentProject.title); setDescription(currentProject.description ?? ""); setEditing(true); }
+  async function save() { try { await update(currentProject.id, { title: title.trim(), description: description.trim() }); setEditing(false); setError(null); } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Project could not be updated."); } }
+  async function changeStage(nextStatus: typeof currentProject.status) { try { await update(currentProject.id, { status: nextStatus }); await recordActivity("project", currentProject.id, "project_stage_changed", { from: currentProject.status, to: nextStatus }); setError(null); } catch (stageError) { setError(stageError instanceof Error ? stageError.message : "Project stage could not be updated."); } }
 
-  return <div><Link to="/projects" className="mb-6 inline-block text-sm font-semibold text-muted hover:text-foreground">← Projects</Link><PageHeader eyebrow="Project" title={project.title} action={isAdmin ? <Button variant="secondary" onClick={startEditing}>Edit</Button> : null} /><div className="mb-6 flex flex-wrap gap-2"><Badge>{formatStatus(project.status)}</Badge>{project.originating_idea_id ? <Link to={`/ideas/${project.originating_idea_id}`}><Badge>Originating idea</Badge></Link> : null}</div>{editing ? <section className="rounded-xl border border-border bg-white p-6"><div className="grid gap-3"><input value={title} onChange={(event) => setTitle(event.target.value)} className="h-11 rounded-md border border-border px-3" /><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-md border border-border p-3" /><select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus)} className="h-11 rounded-md border border-border bg-white px-3">{projectStatuses.map((item) => <option key={item} value={item}>{formatStatus(item)}</option>)}</select>{error ? <p className="text-sm text-[#b42318]">{error}</p> : null}<div className="flex gap-2"><Button onClick={() => void save()}>Save changes</Button><Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button></div></div></section> : <section className="rounded-xl border border-border bg-white p-6"><p className="whitespace-pre-wrap leading-7">{project.description || "No description provided."}</p></section>}</div>;
+  return <div><Link to="/projects" className="mb-6 inline-block text-sm font-semibold text-muted hover:text-foreground">← Projects</Link><PageHeader eyebrow="Project" title={project.title} action={isAdmin ? <Button variant="secondary" onClick={startEditing}>Edit</Button> : null} /><div className="mb-6 flex flex-wrap gap-2"><Badge>{formatStatus(project.status)}</Badge>{project.originating_idea_id ? <Link to={`/ideas/${project.originating_idea_id}`}><Badge>Originating idea</Badge></Link> : null}</div><ProjectStageControl status={project.status} canEdit={isAdmin} onChange={changeStage} />{error ? <p className="mt-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm" role="alert">{error}</p> : null}<nav className="mt-6 flex gap-1 border-b border-border" aria-label="Project sections">{(["overview", "discussion", "todo"] as const).map((item) => <button key={item} type="button" onClick={() => setSearchParams(item === "overview" ? {} : { tab: item })} className={`border-b-2 px-4 py-3 text-sm font-semibold capitalize ${tab === item ? "border-foreground text-foreground" : "border-transparent text-muted"}`}>{item}</button>)}</nav>{tab === "overview" ? <>{editing ? <section className="mt-6 rounded-xl border border-border bg-white p-6"><div className="grid gap-3"><input value={title} onChange={(event) => setTitle(event.target.value)} className="h-11 rounded-md border border-border px-3" /><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-md border border-border p-3" /><div className="flex gap-2"><Button onClick={() => void save()}>Save changes</Button><Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button></div></div></section> : <section className="mt-6 rounded-xl border border-border bg-white p-6"><p className="whitespace-pre-wrap leading-7">{project.description || "No description provided."}</p></section>}<ActivityTimeline entityType="project" entityId={project.id} /></> : null}{tab === "discussion" ? <CommentsPanel entityType="project" entityId={project.id} /> : null}{tab === "todo" ? <div className="mt-6"><ProjectTodoList projectId={project.id} canEdit={isAdmin} /></div> : null}</div>;
 }

@@ -126,6 +126,15 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectTodo {
+  id: string;
+  project_id: string;
+  title: string;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ReputationRule {
   id: string;
   rule_key: string;
