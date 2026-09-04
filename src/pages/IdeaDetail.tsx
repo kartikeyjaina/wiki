@@ -32,7 +32,8 @@ export function IdeaDetail() {
     try {
       const { error } = await supabase.rpc("transition_idea_status", { p_idea_id: currentIdea.id, p_new_status: nextStatus });
       if (error) throw error;
-      await recordActivity("idea", currentIdea.id, "status_changed", { from: currentIdea.status, to: nextStatus }); await reload();
+      try { await recordActivity("idea", currentIdea.id, "status_changed", { from: currentIdea.status, to: nextStatus }); } catch (activityError) { console.warn("[idea] activity failed:", activityError); }
+      await reload();
     } catch (err) { setUpdateError(err instanceof Error ? err.message : "Status could not be updated."); }
     finally { setUpdating(false); }
   }
@@ -41,6 +42,7 @@ export function IdeaDetail() {
     if (!supabase || !canDecide || updating) return;
     const existing = projects.find((project) => project.originating_idea_id === currentIdea.id); if (existing) { navigate(`/projects/${existing.id}`); return; }
     setUpdating(true); setUpdateError(null);
+    let createdProjectId: string | null = null;
     try {
       const result = await supabase.from("projects").insert({ title: currentIdea.title, description: currentIdea.description, status: "planned", originating_idea_id: currentIdea.id, owner_id: session?.user.id ?? null }).select("id").single();
       if (result.error) {
@@ -50,12 +52,19 @@ export function IdeaDetail() {
         }
         throw result.error;
       }
+      createdProjectId = result.data.id;
       const { error: transitionError } = await supabase.rpc("transition_idea_status", { p_idea_id: currentIdea.id, p_new_status: "in_progress" });
       if (transitionError) throw transitionError;
-      await recordActivity("idea", currentIdea.id, "project_created", { project_id: result.data.id }); navigate(`/projects/${result.data.id}`);
-    } catch (err) { setUpdateError(err instanceof Error ? err.message : "The project could not be created. Please try again."); }
-    finally { setUpdating(false); }
+      try { await recordActivity("idea", currentIdea.id, "project_created", { project_id: createdProjectId }); } catch (activityError) { console.warn("[idea] activity failed:", activityError); }
+      navigate(`/projects/${createdProjectId}`);
+    } catch (err) {
+      if (createdProjectId) {
+        const { error: rollbackError } = await supabase.from("projects").delete().eq("id", createdProjectId);
+        if (rollbackError) console.warn("[idea] project rollback failed:", rollbackError.message);
+      }
+      setUpdateError(err instanceof Error ? err.message : "The project could not be created. Please try again.");
+    } finally { setUpdating(false); }
   }
 
-  return <div><Link to="/ideas" className="mb-6 inline-block text-sm font-semibold text-muted hover:text-foreground">← Ideas</Link><div className="grid gap-6 md:grid-cols-[80px_minmax(0,1fr)]"><VoteControl ideaId={idea.id} score={idea.score ?? 0} currentVote={idea.user_vote ?? 0} onReconcile={reload} /><div><PageHeader eyebrow={idea.category?.name ?? "Idea"} title={idea.title} /><div className="mb-5"><Button size="sm" variant="secondary" onClick={() => void toggleFollowing()}>{following ? "Watching" : "Watch idea"}</Button></div><div className="mb-5 flex flex-wrap items-center gap-2"><Badge>{ideaStatusLabels[idea.status]}</Badge>{idea.author?.display_name ? <Badge>{idea.author.display_name}</Badge> : null}</div>{canDecide && transitions.length ? <div className="mb-8 flex flex-wrap gap-2">{transitions.map((transition) => <Button key={transition.status} size="sm" variant={transition.status === "declined" ? "secondary" : "primary"} disabled={updating} onClick={() => transition.status === "in_progress" && currentIdea.status === "planned" ? void startProject() : void changeStatus(transition.status)}>{transition.label}</Button>)}</div> : null}{updateError ? <p className="mb-5 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium" role="alert">{updateError}</p> : null}<section className="prose max-w-none rounded-xl border border-border bg-white p-6"><p className="whitespace-pre-wrap leading-7 text-foreground">{idea.description}</p>{idea.why_it_matters ? <><h2 className="mt-8 font-display text-2xl font-bold tracking-[-0.03em]">Why it matters</h2><p className="whitespace-pre-wrap leading-7 text-muted">{idea.why_it_matters}</p></> : null}</section><CommentsPanel entityType="idea" entityId={idea.id} /><RelationshipPanel entityType="idea" entityId={idea.id} />{statusEvent ? <p className="mt-4 text-xs text-muted">Status changed to {ideaStatusLabels[idea.status]} by {statusEvent.actor?.display_name ?? "a workspace member"} on {new Date(statusEvent.created_at).toLocaleDateString()}</p> : null}{relatedProject ? <section className="mt-6 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Related project</h2><Link to={`/projects/${relatedProject.id}`} className="mt-3 block font-semibold hover:underline">{relatedProject.title}</Link><p className="mt-1 text-sm text-muted">{relatedProject.description || "No description provided."}</p></section> : null}</div></div></div>;
+  return <div><Link to="/ideas" className="mb-6 inline-block text-sm font-semibold text-muted hover:text-foreground">← Ideas</Link><div className="grid gap-6 md:grid-cols-[80px_minmax(0,1fr)]"><VoteControl ideaId={idea.id} score={idea.score ?? 0} currentVote={idea.user_vote ?? 0} onReconcile={reload} /><div><PageHeader eyebrow={idea.category?.name ?? "Idea"} title={idea.title} /><div className="mb-5"><Button size="sm" variant="secondary" onClick={() => void toggleFollowing()} disabled={updating}>{following ? "Watching" : "Watch idea"}</Button></div><div className="mb-5 flex flex-wrap items-center gap-2"><Badge>{ideaStatusLabels[idea.status]}</Badge>{idea.author?.display_name ? <Badge>{idea.author.display_name}</Badge> : null}</div>{canDecide && transitions.length ? <div className="mb-8 flex flex-wrap gap-2">{transitions.map((transition) => <Button key={transition.status} size="sm" variant={transition.status === "declined" ? "secondary" : "primary"} disabled={updating} onClick={() => transition.status === "in_progress" && currentIdea.status === "planned" ? void startProject() : void changeStatus(transition.status)}>{transition.label}</Button>)}</div> : null}{updateError ? <p className="mb-5 rounded-lg border border-black/5 bg-[#FAD9DB] px-4 py-3 text-sm font-medium" role="alert">{updateError}</p> : null}<section className="prose max-w-none rounded-xl border border-border bg-white p-5 sm:p-6"><p className="whitespace-pre-wrap leading-7 text-foreground">{idea.description}</p>{idea.why_it_matters ? <><h2 className="mt-8 font-display text-2xl font-bold tracking-[-0.03em]">Why it matters</h2><p className="whitespace-pre-wrap leading-7 text-muted">{idea.why_it_matters}</p></> : null}</section><CommentsPanel entityType="idea" entityId={idea.id} /><RelationshipPanel entityType="idea" entityId={idea.id} />{statusEvent ? <p className="mt-4 text-xs text-muted">Status changed to {ideaStatusLabels[idea.status]} by {statusEvent.actor?.display_name ?? "a workspace member"} on {new Date(statusEvent.created_at).toLocaleDateString()}</p> : null}{relatedProject ? <section className="mt-6 rounded-xl border border-border bg-white p-5 sm:p-6"><h2 className="font-display text-xl font-bold">Related project</h2><Link to={`/projects/${relatedProject.id}`} className="mt-3 block font-semibold hover:underline">{relatedProject.title}</Link><p className="mt-1 text-sm text-muted">{relatedProject.description || "No description provided."}</p></section> : null}</div></div></div>;
 }
