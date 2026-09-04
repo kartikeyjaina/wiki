@@ -18,7 +18,7 @@ export function Brand() {
               Brand
             </Badge>
             <h2 className="mt-6 font-display text-2xl font-bold tracking-[-0.03em]">{section}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">Add real wiki content and approved assets for this section through Supabase-backed records.</p>
+            <p className="mt-2 text-sm leading-6 text-muted">Add real Wiki content and brand assets for this section through Supabase-backed records.</p>
           </article>
         ))}
       </div>

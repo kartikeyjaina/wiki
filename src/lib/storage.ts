@@ -10,6 +10,10 @@ export async function getAssetDownloadUrl(storagePath: string) {
   return data.signedUrl;
 }
 
+export async function getAssetPreviewUrl(storagePath: string) {
+  return getAssetDownloadUrl(storagePath);
+}
+
 export async function downloadAsset(storagePath: string, filename?: string) {
   const url = await getAssetDownloadUrl(storagePath);
   const anchor = document.createElement("a");

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAssets } from "@/hooks/useAssets";
 import { shortDate } from "@/lib/utils";
-import { downloadAsset } from "@/lib/storage";
+import { downloadAsset, getAssetPreviewUrl } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { useEntityFollow, useRecentlyViewed, useSavedAsset } from "@/hooks/useWorkspaceFeatures";
 
@@ -18,11 +18,19 @@ export function AssetDetail() {
   const { saved, toggle: toggleSaved } = useSavedAsset(asset?.id);
   useRecentlyViewed("asset", asset?.id);
   const [collectionName, setCollectionName] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState(false);
 
   useEffect(() => {
     if (!supabase || !asset?.collection_id) return;
     void supabase.from("asset_collections").select("name").eq("id", asset.collection_id).single().then(({ data }) => setCollectionName(data?.name ?? null));
   }, [asset?.collection_id]);
+
+  useEffect(() => {
+    setPreviewUrl(null); setPreviewError(false);
+    if (!asset?.storage_path) return;
+    void getAssetPreviewUrl(asset.storage_path).then(setPreviewUrl).catch(() => setPreviewError(true));
+  }, [asset?.storage_path]);
 
   if (loading) return <p className="text-sm text-muted">Loading asset...</p>;
   if (!asset) return <EmptyState title="Asset not found." description="Only real imported or uploaded assets appear here." />;
@@ -46,7 +54,7 @@ export function AssetDetail() {
       <div className="mb-6 flex gap-2"><Button size="sm" variant="secondary" onClick={() => void toggleSaved()}>{saved ? "Saved" : "Save"}</Button><Button size="sm" variant="secondary" onClick={() => void toggleFollowing()}>{following ? "Watching" : "Watch"}</Button></div>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid min-h-[420px] place-items-center rounded-xl border border-border bg-surface p-8">
-          {asset.preview_url ? <img src={asset.preview_url} alt="" className="max-h-[70vh] max-w-full object-contain" /> : <p className="text-sm text-muted">No preview available.</p>}
+          {previewUrl && !previewError ? <img src={previewUrl} alt={asset.name} className="max-h-[70vh] max-w-full object-contain" onError={() => setPreviewError(true)} /> : <p className="text-sm text-muted">{previewError ? "Preview unavailable. Download the file to inspect it." : "Loading preview..."}</p>}
         </div>
         <aside className="space-y-4 rounded-xl border border-border bg-white p-5">
           <dl className="space-y-4 text-sm">

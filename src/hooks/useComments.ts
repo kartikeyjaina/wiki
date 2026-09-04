@@ -49,7 +49,7 @@ export function useComments(entityType: EntityType, entityId?: string) {
     };
   }, [entityId, entityType, load]);
 
-  async function create(body: string, parentId?: string | null) {
+  async function create(body: string, parentId?: string | null, mentionUserIds: string[] = []) {
     if (!supabase || !entityId) throw new Error("Supabase is not configured.");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) throw new Error("Sign in to comment.");
@@ -61,6 +61,15 @@ export function useComments(entityType: EntityType, entityId?: string) {
       body,
     });
     if (insertError) throw insertError;
+    const commentResult = await supabase.from("comments").select("id").eq("entity_type", entityType).eq("entity_id", entityId).eq("author_id", auth.user.id).eq("body", body).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const createdCommentId = commentResult.data?.id;
+    if (createdCommentId && mentionUserIds.length) {
+      const uniqueIds = [...new Set(mentionUserIds)].filter((userId) => userId !== auth.user.id);
+      if (uniqueIds.length) {
+        await supabase.from("comment_mentions").insert(uniqueIds.map((userId) => ({ comment_id: createdCommentId, user_id: userId })));
+        await supabase.from("notifications").insert(uniqueIds.map((userId) => ({ user_id: userId, type: "mention", title: "You were mentioned", body: `You were mentioned in a ${entityType} comment.`, entity_type: entityType, entity_id: entityId, href: `/${entityType}s/${entityId}` })));
+      }
+    }
     await recordActivity(entityType, entityId, "comment_created", { parent_id: parentId ?? null });
     await load();
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProjectTransitions, isProjectTransitionAllowed } from "@/lib/project-workflow";
+import { getProjectHealth, getProjectTransitions, isProjectTransitionAllowed } from "@/lib/project-workflow";
 
 describe("project workflow", () => {
   it("exposes the valid lifecycle transitions", () => {
@@ -13,5 +13,17 @@ describe("project workflow", () => {
     expect(isProjectTransitionAllowed("planned", "shipped")).toBe(false);
     expect(isProjectTransitionAllowed("archived", "in_progress")).toBe(false);
     expect(isProjectTransitionAllowed("in_progress", "blocked")).toBe(true);
+  });
+});
+
+describe("project health", () => {
+  it("prioritizes blocked and overdue states", () => {
+    expect(getProjectHealth({ status: "blocked", today: "2026-09-04" })).toBe("blocked");
+    expect(getProjectHealth({ status: "in_progress", dueDate: "2026-09-03", today: "2026-09-04" })).toBe("overdue");
+  });
+
+  it("marks sparse work at risk", () => {
+    expect(getProjectHealth({ status: "in_progress", totalTodos: 4, completedTodos: 0, today: "2026-09-04" })).toBe("at_risk");
+    expect(getProjectHealth({ status: "in_progress", totalTodos: 4, completedTodos: 4, today: "2026-09-04" })).toBe("on_track");
   });
 });

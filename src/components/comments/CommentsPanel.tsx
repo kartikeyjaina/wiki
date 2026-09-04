@@ -1,34 +1,63 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Comment, EntityType } from "@/types/domain";
 import { useComments } from "@/hooks/useComments";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/Button";
 import { shortDate } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 export function CommentsPanel({ entityType, entityId }: { entityType: EntityType; entityId: string }) {
   const { comments, loading, create, update, remove, error } = useComments(entityType, entityId);
   const [body, setBody] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionOptions, setMentionOptions] = useState<{ id: string; display_name: string | null }[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentions, setMentions] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const roots = useMemo(() => comments.filter((comment) => !comment.parent_id), [comments]);
   const replies = useMemo(() => comments.filter((comment) => comment.parent_id), [comments]);
 
+  useEffect(() => {
+    if (!supabase || mentionQuery === null) return;
+    const query = mentionQuery.trim();
+    if (!query) { setMentionOptions([]); return; }
+    void supabase.from("profiles").select("id, display_name").ilike("display_name", `${query}%`).limit(6).then(({ data }) => setMentionOptions((data ?? []) as { id: string; display_name: string | null }[]));
+  }, [mentionQuery]);
+
+  function updateBody(value: string) {
+    setBody(value);
+    const match = value.match(/(?:^|\s)@([\w -]*)$/);
+    setMentionQuery(match ? match[1] : null); setMentionIndex(0);
+  }
+
+  function chooseMention(option: { id: string; display_name: string | null }) {
+    const name = option.display_name ?? "member";
+    setBody((value) => value.replace(/@[\w -]*$/, `@${name} `));
+    setMentions((value) => ({ ...value, [name]: option.id }));
+    setMentionQuery(null); setMentionOptions([]);
+  }
+
   async function submit(parentId?: string) {
     if (body.trim().length < 2) return;
+    if (submitting) return;
+    setSubmitting(true);
     try {
-      await create(body.trim(), parentId);
+      await create(body.trim(), parentId, Object.values(mentions));
       setBody("");
+      setMentions({}); setMentionQuery(null);
       setFailure(null);
     } catch (commentError) {
       setFailure(commentError instanceof Error ? commentError.message : "Your comment wasn't saved.");
-    }
+    } finally { setSubmitting(false); }
   }
 
   return (
     <section className="mt-6 rounded-xl border border-border bg-white p-6">
       <h2 className="font-display text-xl font-bold tracking-[-0.03em]">Discussion</h2>
       <div className="mt-5 space-y-3">
-        <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={3} className="w-full rounded-md border border-border p-4 text-sm outline-none focus:border-foreground" placeholder="Add a comment..." />
-        <Button type="button" onClick={() => void submit()}>Post comment</Button>
+        <div className="relative"><textarea value={body} onChange={(event) => updateBody(event.target.value)} onKeyDown={(event) => { if (mentionQuery !== null && mentionOptions.length) { if (event.key === "ArrowDown") { event.preventDefault(); setMentionIndex((index) => Math.min(index + 1, mentionOptions.length - 1)); } if (event.key === "ArrowUp") { event.preventDefault(); setMentionIndex((index) => Math.max(index - 1, 0)); } if (event.key === "Enter") { event.preventDefault(); chooseMention(mentionOptions[mentionIndex]); } if (event.key === "Escape") { setMentionQuery(null); setMentionOptions([]); } } }} rows={3} className="w-full rounded-md border border-border p-4 text-sm outline-none focus:border-foreground" placeholder="Add a comment..." />{mentionOptions.length ? <ul className="absolute bottom-3 left-3 z-10 w-64 rounded-md border border-border bg-white p-1 shadow-soft" role="listbox">{mentionOptions.map((option, index) => <li key={option.id}><button type="button" className={`w-full rounded px-3 py-2 text-left text-sm ${index === mentionIndex ? "bg-surface" : ""}`} onMouseDown={(event) => { event.preventDefault(); chooseMention(option); }}>{option.display_name ?? "Workspace member"}</button></li>)}</ul> : null}</div>
+        <Button type="button" disabled={submitting} onClick={() => void submit()}>{submitting ? "Posting..." : "Post comment"}</Button>
       </div>
       {failure || error ? <p className="mt-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium" role="alert">{failure ?? error}</p> : null}
       <div className="mt-6 space-y-4">

@@ -137,6 +137,7 @@ export interface WikiPage {
   tags: string[];
   created_at: string;
   updated_at: string;
+  author?: Profile | null;
 }
 
 export interface WikiRevision {
@@ -181,6 +182,18 @@ export interface ProjectTodo {
   completed: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProjectAttachment {
+  id: string;
+  project_id: string;
+  storage_path: string;
+  file_name: string;
+  description: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_by: string | null;
+  created_at: string;
 }
 
 export interface ReputationRule {
