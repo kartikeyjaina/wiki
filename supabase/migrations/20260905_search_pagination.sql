@@ -1,9 +1,9 @@
--- Paginated search endpoint for large workspaces. Keeps the existing two-argument RPC intact for compatibility.
+-- Paginated search endpoint for large workspaces. The original two-argument RPC remains unchanged.
 create or replace function public.global_search(
   search_query text,
-  type_filter text default null,
-  page_size integer default 30,
-  page_offset integer default 0
+  type_filter text,
+  page_size integer,
+  page_offset integer
 )
 returns table(id uuid, type public.entity_type, title text, excerpt text, href text)
 language sql stable security invoker as $$
