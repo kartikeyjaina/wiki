@@ -15,7 +15,7 @@ import {
   getFilePreviewType,
   getFileTypeLabel,
 } from "@/lib/file-preview";
-
+import { useAssetPreviewUrl } from "@/hooks/useAssetPreviewUrl";
 export function AssetThumbnail({ asset }: { asset: Asset }) {
   const isImage = getAssetThumbnailType(asset) === "image";
   return (
@@ -30,21 +30,18 @@ export function AssetThumbnail({ asset }: { asset: Asset }) {
 }
 
 function ImageThumbnail({ asset }: { asset: Asset }) {
-  // Use pre-computed signed preview_url if available (avoids generating a new
-  // signed URL per render). Fall back to FileThumbnail on error.
-  if (!asset.preview_url) return <FileThumbnail asset={asset} />;
+  const { previewUrl } = useAssetPreviewUrl(asset.storage_path);
+
+  if (!previewUrl) {
+    return <FileThumbnail asset={asset} />;
+  }
 
   return (
     <img
-      src={asset.preview_url}
+      src={previewUrl}
       alt={asset.name}
       loading="lazy"
       className="h-full w-full object-contain"
-      onError={(event) => {
-        // Replace broken image with the file-type icon fallback
-        const target = event.currentTarget;
-        target.style.display = "none";
-      }}
     />
   );
 }
