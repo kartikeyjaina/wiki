@@ -61,6 +61,7 @@ export interface Asset {
   usage_guidance: string | null;
   created_at: string;
   updated_at: string;
+  collection?: Pick<AssetCollection, "id" | "name" | "slug"> | null;
 }
 
 export interface AssetCollection {

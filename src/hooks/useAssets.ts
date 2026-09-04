@@ -20,7 +20,7 @@ export function useAssets() {
 
     const { data, error: loadError } = await client
       .from("assets")
-      .select("*")
+      .select("*, asset_collections(id, name, slug)")
       .order("updated_at", { ascending: false });
 
     if (loadError) {
@@ -33,7 +33,7 @@ export function useAssets() {
     const assetsWithPreviews = await Promise.all(
       (data ?? []).map(async (asset) => {
         if (!asset.storage_path) {
-          return asset as Asset;
+          return { ...asset, collection: asset.asset_collections ?? null } as Asset;
         }
 
         const { data: signed, error: signedError } =
@@ -47,11 +47,12 @@ export function useAssets() {
             signedError
           );
 
-          return asset as Asset;
+          return { ...asset, collection: asset.asset_collections ?? null } as Asset;
         }
 
         return {
           ...asset,
+          collection: asset.asset_collections ?? null,
           preview_url: signed.signedUrl,
         } as Asset;
       })
