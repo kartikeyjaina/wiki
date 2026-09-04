@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Archive, FolderKanban, Home, Lightbulb, Menu, Search, SlidersHorizontal } from "lucide-react";
+import { Archive, BookOpen, FolderKanban, Home, Lightbulb, Menu, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
@@ -13,6 +13,7 @@ const navItems = [
   { label: "Assets", href: "/assets", icon: Archive },
   { label: "Ideas", href: "/ideas", icon: Lightbulb },
   { label: "Projects", href: "/projects", icon: FolderKanban },
+  { label: "Wiki", href: "/wiki", icon: BookOpen },
 ];
 
 export function AppShell() {

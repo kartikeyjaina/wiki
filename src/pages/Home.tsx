@@ -67,7 +67,7 @@ export function Home() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No assets yet." description="Connect the brand repository importer or upload approved files through admin." />
+            <EmptyState title="No assets yet." description="Connect the brand repository importer or upload brand files through admin." />
           )}
         </div>
       </section>

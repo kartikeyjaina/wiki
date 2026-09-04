@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import type { SearchResult } from "@/types/domain";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +14,7 @@ interface GlobalSearchProps {
 const filters = ["all", "wiki", "assets", "ideas", "comments", "projects", "people"] as const;
 
 export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof filters)[number]>("all");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -82,7 +83,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
               if (event.key === "Escape") onOpenChange(false);
               if (event.key === "ArrowDown") { event.preventDefault(); setActiveIndex((index) => Math.min(index + 1, results.length - 1)); }
               if (event.key === "ArrowUp") { event.preventDefault(); setActiveIndex((index) => Math.max(index - 1, 0)); }
-              if (event.key === "Enter" && results[activeIndex]) { event.preventDefault(); rememberSearch(query); window.location.assign(results[activeIndex].href); onOpenChange(false); }
+              if (event.key === "Enter" && results[activeIndex]) { event.preventDefault(); rememberSearch(query); navigate(results[activeIndex].href); onOpenChange(false); }
               else if (event.key === "Enter") rememberSearch(query);
             }}
             placeholder="Search everything..."

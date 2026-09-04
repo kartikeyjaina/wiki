@@ -18,6 +18,7 @@ import { CollectionDetail } from "@/pages/CollectionDetail";
 import { SavedAssets } from "@/pages/SavedAssets";
 import { Profile } from "@/pages/Profile";
 import { People } from "@/pages/People";
+import { Wiki } from "@/pages/Wiki";
 
 export default function App() {
   const { session, loading, configured } = useSession();
@@ -40,6 +41,8 @@ export default function App() {
         <Route path="assets/:id" element={<AssetDetail />} />
         <Route path="saved" element={<SavedAssets />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="wiki" element={<Wiki />} />
+        <Route path="wiki/:slug" element={<Wiki />} />
         <Route path="collections/:slug" element={<CollectionDetail />} />
         <Route path="ideas" element={<Ideas />} />
         <Route path="ideas/new" element={<NewIdea />} />

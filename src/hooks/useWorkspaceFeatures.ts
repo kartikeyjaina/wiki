@@ -9,7 +9,8 @@ export function useNotifications() {
   const [loading, setLoading] = useState(Boolean(supabase));
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); return; }
-    const { data } = await supabase.from("notifications").select("id, type, title, body, href, read_at, created_at").order("created_at", { ascending: false }).limit(20);
+    const { data, error } = await supabase.from("notifications").select("id, type, title, body, href, read_at, created_at").order("created_at", { ascending: false }).limit(20);
+    if (error) console.error("Unable to load notifications", error);
     setNotifications((data ?? []) as Notification[]); setLoading(false);
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -21,14 +22,14 @@ export function useNotifications() {
 export function useEntityFollow(entityType: EntityType, entityId?: string) {
   const [following, setFollowing] = useState(false);
   useEffect(() => { if (!supabase || !entityId) return; void supabase.from("entity_follows").select("id").eq("entity_type", entityType).eq("entity_id", entityId).maybeSingle().then(({ data }) => setFollowing(Boolean(data))); }, [entityId, entityType]);
-  async function toggle() { if (!supabase || !entityId) return; if (following) await supabase.from("entity_follows").delete().eq("entity_type", entityType).eq("entity_id", entityId); else await supabase.from("entity_follows").insert({ entity_type: entityType, entity_id: entityId }); setFollowing((value) => !value); }
+  async function toggle() { if (!supabase || !entityId) return; const result = following ? await supabase.from("entity_follows").delete().eq("entity_type", entityType).eq("entity_id", entityId) : await supabase.from("entity_follows").insert({ entity_type: entityType, entity_id: entityId }); if (!result.error) setFollowing((value) => !value); }
   return { following, toggle };
 }
 
 export function useSavedAsset(assetId?: string) {
   const [saved, setSaved] = useState(false);
   useEffect(() => { if (!supabase || !assetId) return; void supabase.from("user_asset_saves").select("asset_id").eq("asset_id", assetId).maybeSingle().then(({ data }) => setSaved(Boolean(data))); }, [assetId]);
-  async function toggle() { if (!supabase || !assetId) return; if (saved) await supabase.from("user_asset_saves").delete().eq("asset_id", assetId); else await supabase.from("user_asset_saves").insert({ asset_id: assetId }); setSaved((value) => !value); }
+  async function toggle() { if (!supabase || !assetId) return; const result = saved ? await supabase.from("user_asset_saves").delete().eq("asset_id", assetId) : await supabase.from("user_asset_saves").insert({ asset_id: assetId }); if (!result.error) setSaved((value) => !value); }
   return { saved, toggle };
 }
 
