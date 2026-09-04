@@ -1,6 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -11,10 +10,23 @@ interface VoteControlProps {
   onReconcile?: () => void;
 }
 
-export function VoteControl({ ideaId, score, currentVote = 0, onReconcile }: VoteControlProps) {
+export function VoteControl({
+  ideaId,
+  score,
+  currentVote = 0,
+  onReconcile,
+}: VoteControlProps) {
   const [optimisticVote, setOptimisticVote] = useState<-1 | 0 | 1>(currentVote);
   const [optimisticScore, setOptimisticScore] = useState(score);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOptimisticVote(currentVote);
+  }, [currentVote]);
+
+  useEffect(() => {
+    setOptimisticScore(score);
+  }, [score]);
 
   async function vote(nextValue: -1 | 1) {
     if (!supabase) {
@@ -42,8 +54,17 @@ export function VoteControl({ ideaId, score, currentVote = 0, onReconcile }: Vot
 
     const request =
       resolvedVote === 0
-        ? supabase.from("idea_votes").delete().eq("idea_id", ideaId).eq("user_id", user.id)
-        : supabase.from("idea_votes").upsert({ idea_id: ideaId, user_id: user.id, value: resolvedVote }, { onConflict: "idea_id,user_id" });
+        ? supabase
+            .from("idea_votes")
+            .delete()
+            .eq("idea_id", ideaId)
+            .eq("user_id", user.id)
+        : supabase
+            .from("idea_votes")
+            .upsert(
+              { idea_id: ideaId, user_id: user.id, value: resolvedVote },
+              { onConflict: "idea_id,user_id" },
+            );
 
     const { error: voteError } = await request;
     if (voteError) {
@@ -61,27 +82,36 @@ export function VoteControl({ ideaId, score, currentVote = 0, onReconcile }: Vot
         type="button"
         aria-label="Upvote idea"
         onClick={() => void vote(1)}
-        className={cn("grid h-9 w-9 place-items-center rounded-md transition", optimisticVote === 1 ? "bg-[#ccf0dc] text-foreground" : "hover:bg-white")}
+        className={cn(
+          "grid h-9 w-9 place-items-center rounded-md transition",
+          optimisticVote === 1
+            ? "bg-[#ccf0dc] text-foreground"
+            : "hover:bg-white",
+        )}
       >
         <ChevronUp className="h-5 w-5" />
       </button>
-      <motion.span
-        key={optimisticScore}
-        initial={{ opacity: 0, y: optimisticVote === -1 ? -4 : 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="font-display text-lg font-bold tracking-[-0.03em]"
-      >
+      <span className="font-display text-lg font-bold tracking-[-0.03em]">
         {optimisticScore}
-      </motion.span>
+      </span>
       <button
         type="button"
         aria-label="Downvote idea"
         onClick={() => void vote(-1)}
-        className={cn("grid h-9 w-9 place-items-center rounded-md transition", optimisticVote === -1 ? "bg-[#fad9db] text-foreground" : "hover:bg-white")}
+        className={cn(
+          "grid h-9 w-9 place-items-center rounded-md transition",
+          optimisticVote === -1
+            ? "bg-[#fad9db] text-foreground"
+            : "hover:bg-white",
+        )}
       >
         <ChevronDown className="h-5 w-5" />
       </button>
-      {error ? <p className="sr-only" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="sr-only" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
