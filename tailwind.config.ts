@@ -1,13 +1,11 @@
 import type { Config } from "tailwindcss";
 
 export default {
-  darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       fontFamily: {
         display: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
-        body: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
       },
       colors: {
         background: "hsl(var(--background))",
