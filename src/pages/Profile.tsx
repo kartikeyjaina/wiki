@@ -10,159 +10,33 @@ import { useNotifications } from "@/hooks/useWorkspaceFeatures";
 import { useRecentlyViewedItems } from "@/hooks/useRecentlyViewedItems";
 import { supabase } from "@/lib/supabase";
 import { formatStatus, shortDate } from "@/lib/utils";
-
 interface OwnedProject { id: string; title: string; status: string; updated_at: string; }
 interface AuthoredIdea { id: string; title: string; status: string; created_at: string; }
 interface ProjectMembership { project_id: string; role: string; project: { id: string; title: string; status: string } | null; }
 interface Contribution { id: string; event_type: string; entity_type: string; created_at: string; }
-
 export function Profile() {
-  const { profile, session } = useProfile();
-  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
-  const { items: recentItems, loading: recentLoading } = useRecentlyViewedItems(8);
-  const [ownedProjects, setOwnedProjects] = useState<OwnedProject[]>([]);
-  const [memberships, setMemberships] = useState<ProjectMembership[]>([]);
-  const [authoredIdeas, setAuthoredIdeas] = useState<AuthoredIdea[]>([]);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
-  const [dataLoading, setDataLoading] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
-
+  const { profile, session } = useProfile(); const { notifications, unreadCount, markRead, markAllRead } = useNotifications(); const { items: recentItems, loading: recentLoading } = useRecentlyViewedItems(8);
+  const [ownedProjects, setOwnedProjects] = useState<OwnedProject[]>([]); const [memberships, setMemberships] = useState<ProjectMembership[]>([]); const [authoredIdeas, setAuthoredIdeas] = useState<AuthoredIdea[]>([]); const [contributions, setContributions] = useState<Contribution[]>([]); const [dataLoading, setDataLoading] = useState(false); const [dataError, setDataError] = useState<string | null>(null); const [editing, setEditing] = useState(false); const [displayName, setDisplayName] = useState(""); const [avatarUrl, setAvatarUrl] = useState(""); const [profileMessage, setProfileMessage] = useState<string | null>(null); const [savingProfile, setSavingProfile] = useState(false);
+  useEffect(() => { setDisplayName(profile?.display_name ?? ""); setAvatarUrl(profile?.avatar_url ?? ""); }, [profile?.display_name, profile?.avatar_url]);
   useEffect(() => {
-    setDisplayName(profile?.display_name ?? "");
-    setAvatarUrl(profile?.avatar_url ?? "");
-  }, [profile?.display_name, profile?.avatar_url]);
-
-  useEffect(() => {
-    if (!supabase || !session?.user.id) return;
-    const uid = session.user.id;
-    setDataLoading(true);
-
-    void Promise.all([
-      supabase.from("projects").select("id, title, status, updated_at").eq("owner_id", uid).order("updated_at", { ascending: false }).limit(8),
-      supabase.from("project_members").select("project_id, role, project:projects!project_members_project_id_fkey(id, title, status)").eq("user_id", uid).limit(8),
-      supabase.from("ideas").select("id, title, status, created_at").eq("author_id", uid).order("created_at", { ascending: false }).limit(8),
-      supabase.from("activity_events").select("id, event_type, entity_type, created_at").eq("actor_id", uid).order("created_at", { ascending: false }).limit(12),
-    ]).then(([projectsResult, membershipsResult, ideasResult, contributionResult]) => {
-      setOwnedProjects((projectsResult.data ?? []) as OwnedProject[]);
-      setMemberships(
-        ((membershipsResult.data ?? []) as (Omit<ProjectMembership, "project"> & { project: ProjectMembership["project"] | ProjectMembership["project"][] })[]).map((m) => ({
-          ...m,
-          project: Array.isArray(m.project) ? (m.project[0] ?? null) : m.project,
-        })),
-      );
-      setAuthoredIdeas((ideasResult.data ?? []) as AuthoredIdea[]);
-      setContributions((contributionResult.data ?? []) as Contribution[]);
-      setDataLoading(false);
+    if (!supabase || !session?.user.id) return; const uid = session.user.id; setDataLoading(true); setDataError(null);
+    void Promise.all([supabase.from("projects").select("id, title, status, updated_at").eq("owner_id", uid).order("updated_at", { ascending: false }).limit(8), supabase.from("project_members").select("project_id, role, project:projects!project_members_project_id_fkey(id, title, status)").eq("user_id", uid).limit(8), supabase.from("ideas").select("id, title, status, created_at").eq("author_id", uid).order("created_at", { ascending: false }).limit(8), supabase.from("activity_events").select("id, event_type, entity_type, created_at").eq("actor_id", uid).order("created_at", { ascending: false }).limit(12)]).then(([projectsResult, membershipsResult, ideasResult, contributionResult]) => {
+      const failed = [projectsResult, membershipsResult, ideasResult, contributionResult].find((result) => result.error); if (failed?.error) { setDataError("We couldn't load your workspace activity. Please try again."); setDataLoading(false); return; }
+      setOwnedProjects((projectsResult.data ?? []) as OwnedProject[]); setMemberships(((membershipsResult.data ?? []) as (Omit<ProjectMembership, "project"> & { project: ProjectMembership["project"] | ProjectMembership["project"][] })[]).map((m) => ({ ...m, project: Array.isArray(m.project) ? (m.project[0] ?? null) : m.project }))); setAuthoredIdeas((ideasResult.data ?? []) as AuthoredIdea[]); setContributions((contributionResult.data ?? []) as Contribution[]); setDataLoading(false);
     });
   }, [session?.user.id]);
-
-  async function saveProfile() {
-    if (!supabase || !session?.user.id) return;
-    setSavingProfile(true);
-    setProfileMessage(null);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ display_name: displayName.trim() || null, avatar_url: avatarUrl.trim() || null, updated_at: new Date().toISOString() })
-      .eq("id", session.user.id);
-    setSavingProfile(false);
-    if (error) {
-      setProfileMessage(error.message);
-      return;
-    }
-    setProfileMessage("Profile saved.");
-    setEditing(false);
-  }
-
-  async function signOut() {
-    const { supabase: sb } = await import("@/lib/supabase");
-    await sb?.auth.signOut();
-  }
-
-  const unreadNotifications = notifications.filter((n) => !n.read_at);
-  const readNotifications = notifications.filter((n) => n.read_at);
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow="Your workspace"
-        title={profile?.display_name ?? session?.user.email ?? "Profile"}
-        description="Your personal view of projects, ideas, saved assets, notifications, and contribution history."
-        action={<div className="flex gap-2"><Button variant="secondary" onClick={() => setEditing((value) => !value)}><Pencil className="h-4 w-4" /> {editing ? "Cancel edit" : "Edit profile"}</Button><Button variant="secondary" onClick={() => void signOut()}>Sign out</Button></div>}
-      />
-
-      {editing ? (
-        <section className="rounded-xl border border-border bg-white p-6">
-          <h2 className="font-display text-xl font-bold">Profile details</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="text-sm font-semibold">Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} className="mt-1 h-11 w-full rounded-md border border-border px-3" /></label>
-            <label className="text-sm font-semibold">Avatar URL<input value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} className="mt-1 h-11 w-full rounded-md border border-border px-3" placeholder="https://..." /></label>
-          </div>
-          {profileMessage ? <p className="mt-3 rounded-md bg-surface px-4 py-3 text-sm" role="status">{profileMessage}</p> : null}
-          <div className="mt-4 flex gap-2"><Button onClick={() => void saveProfile()} disabled={savingProfile}><Save className="h-4 w-4" /> {savingProfile ? "Saving..." : "Save profile"}</Button><Button variant="secondary" onClick={() => setEditing(false)}><X className="h-4 w-4" /> Cancel</Button></div>
-        </section>
-      ) : null}
-
-      <section className="mt-8 grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border border-border bg-white p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Role</p><p className="mt-3 font-display text-xl font-bold capitalize">{profile?.role ?? "Member"}</p></div>
-        <Link to="/saved" className="rounded-xl border border-border bg-white p-5 transition hover:shadow-card"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Saved assets</p><p className="mt-3 font-display text-xl font-bold">Open your shortlist</p></Link>
-        <div className="rounded-xl border border-border bg-white p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Notifications</p><p className="mt-3 font-display text-xl font-bold">{unreadCount} unread</p></div>
-        <div className="rounded-xl border border-border bg-white p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Contributions</p><p className="mt-3 font-display text-xl font-bold">{contributions.length}</p></div>
-      </section>
-
-      {unreadNotifications.length > 0 ? (
-        <section className="mt-8 rounded-xl border border-border bg-white p-6">
-          <div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl font-bold">Needs attention</h2><button type="button" onClick={() => void markAllRead()} className="text-xs font-semibold text-muted hover:text-foreground">Mark all read</button></div>
-          <ul className="mt-4 divide-y divide-border">
-            {unreadNotifications.map((n) => (
-              <li key={n.id}>
-                {n.href ? <Link to={n.href} onClick={() => void markRead(n.id)} className="block py-3"><p className="text-sm font-semibold">{n.title}</p>{n.body ? <p className="mt-1 text-xs text-muted">{n.body}</p> : null}<p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString()}</p></Link> : <button type="button" className="block w-full py-3 text-left" onClick={() => void markRead(n.id)}><p className="text-sm font-semibold">{n.title}</p>{n.body ? <p className="mt-1 text-xs text-muted">{n.body}</p> : null}</button>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {!recentLoading && recentItems.length > 0 ? (
-        <section className="mt-8 rounded-xl border border-border bg-white p-6">
-          <h2 className="font-display text-xl font-bold">Continue where you left off</h2>
-          <ul className="mt-4 divide-y divide-border">
-            {recentItems.map((item) => <li key={`${item.entity_type}-${item.id}`}><Link to={item.href} className="flex items-center justify-between gap-3 py-3 hover:opacity-80"><span className="font-semibold">{item.title}</span><span className="text-xs capitalize text-muted">{item.entity_type.replace("_", " ")}</span></Link></li>)}
-          </ul>
-        </section>
-      ) : null}
-
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <section className="rounded-xl border border-border bg-white p-6">
-          <h2 className="font-display text-xl font-bold">Your projects</h2>
-          {dataLoading ? <p className="mt-4 text-sm text-muted">Loading...</p> : ownedProjects.length ? <ul className="mt-4 divide-y divide-border">{ownedProjects.map((project) => <li key={project.id} className="py-3"><Link to={`/projects/${project.id}`} className="font-semibold hover:underline">{project.title}</Link><div className="mt-1 flex gap-2"><Badge>{formatStatus(project.status)}</Badge><span className="text-xs text-muted">{shortDate(project.updated_at)}</span></div></li>)}</ul> : <p className="mt-4 text-sm text-muted">No projects owned yet.</p>}
-        </section>
-
-        <section className="rounded-xl border border-border bg-white p-6">
-          <h2 className="font-display text-xl font-bold">Project memberships</h2>
-          {dataLoading ? <p className="mt-4 text-sm text-muted">Loading...</p> : memberships.length ? <ul className="mt-4 divide-y divide-border">{memberships.map((m) => m.project ? <li key={m.project_id} className="py-3"><Link to={`/projects/${m.project.id}`} className="font-semibold hover:underline">{m.project.title}</Link><div className="mt-1 flex gap-2"><Badge>{formatStatus(m.project.status)}</Badge><Badge className="capitalize">{m.role}</Badge></div></li> : null)}</ul> : <p className="mt-4 text-sm text-muted">No project memberships yet.</p>}
-        </section>
-      </div>
-
-      <section className="mt-8 rounded-xl border border-border bg-white p-6">
-        <h2 className="font-display text-xl font-bold">Your ideas</h2>
-        {dataLoading ? <p className="mt-4 text-sm text-muted">Loading...</p> : authoredIdeas.length ? <ul className="mt-4 grid gap-3 sm:grid-cols-2">{authoredIdeas.map((idea) => <li key={idea.id}><Link to={`/ideas/${idea.id}`} className="block rounded-lg border border-border bg-surface p-4 transition hover:shadow-card"><p className="font-semibold">{idea.title}</p><div className="mt-2 flex gap-2"><Badge>{formatStatus(idea.status)}</Badge><span className="text-xs text-muted">{shortDate(idea.created_at)}</span></div></Link></li>)}</ul> : <EmptyState title="No ideas yet." description="Submit your first idea and it will appear here." action={<Button asChild size="sm"><Link to="/ideas/new">Submit an idea</Link></Button>} />}
-      </section>
-
-      <section className="mt-8 rounded-xl border border-border bg-white p-6">
-        <h2 className="font-display text-xl font-bold">Recent contributions</h2>
-        {contributions.length ? <ul className="mt-4 divide-y divide-border">{contributions.map((item) => <li key={item.id} className="py-3"><p className="text-sm font-semibold capitalize">{item.event_type.replaceAll("_", " ")}</p><p className="mt-1 text-xs text-muted">{item.entity_type.replace("_", " ")} · {shortDate(item.created_at)}</p></li>)}</ul> : <p className="mt-4 text-sm text-muted">No recent contribution activity recorded.</p>}
-      </section>
-
-      {readNotifications.length > 0 ? (
-        <section className="mt-8 rounded-xl border border-border bg-white p-6">
-          <h2 className="font-display text-xl font-bold">Past notifications</h2>
-          <ul className="mt-4 divide-y divide-border">{readNotifications.slice(0, 10).map((n) => <li key={n.id} className="py-3">{n.href ? <Link to={n.href} className="hover:opacity-80"><p className="text-sm text-muted">{n.title}</p><p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString()}</p></Link> : <div><p className="text-sm text-muted">{n.title}</p><p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString()}</p></div>}</li>)}</ul>
-        </section>
-      ) : null}
-    </div>
-  );
+  async function saveProfile() { if (!supabase || !session?.user.id) return; setSavingProfile(true); setProfileMessage(null); const { error } = await supabase.from("profiles").update({ display_name: displayName.trim() || null, avatar_url: avatarUrl.trim() || null, updated_at: new Date().toISOString() }).eq("id", session.user.id); setSavingProfile(false); if (error) { setProfileMessage(error.message); return; } setProfileMessage("Profile saved."); setEditing(false); }
+  async function signOut() { const { supabase: sb } = await import("@/lib/supabase"); await sb?.auth.signOut(); }
+  const unreadNotifications = notifications.filter((n) => !n.read_at); const readNotifications = notifications.filter((n) => n.read_at);
+  return <div><PageHeader eyebrow="Your workspace" title={profile?.display_name ?? session?.user.email ?? "Profile"} description="Your personal view of projects, ideas, saved assets, notifications, and contribution history." action={<div className="flex gap-2"><Button variant="secondary" onClick={() => setEditing((value) => !value)}><Pencil className="h-4 w-4" /> {editing ? "Cancel edit" : "Edit profile"}</Button><Button variant="secondary" onClick={() => void signOut()}>Sign out</Button></div>} />
+    {dataError ? <p className="mt-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm" role="alert">{dataError}</p> : null}
+    {editing ? <section className="mt-6 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Profile details</h2><div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-sm font-semibold">Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} className="mt-1 h-11 w-full rounded-md border border-border px-3" /></label><label className="text-sm font-semibold">Avatar URL<input value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} className="mt-1 h-11 w-full rounded-md border border-border px-3" placeholder="https://..." /></label></div>{profileMessage ? <p className="mt-3 rounded-md bg-surface px-4 py-3 text-sm" role="status">{profileMessage}</p> : null}<div className="mt-4 flex gap-2"><Button onClick={() => void saveProfile()} disabled={savingProfile}><Save className="h-4 w-4" /> {savingProfile ? "Saving..." : "Save profile"}</Button><Button variant="secondary" onClick={() => setEditing(false)}><X className="h-4 w-4" /> Cancel</Button></div></section> : null}
+    <section className="mt-8 grid gap-4 md:grid-cols-4"><div className="rounded-xl border border-border bg-white p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Role</p><p className="mt-3 font-display text-xl font-bold capitalize">{profile?.role ?? "Member"}</p></div><Link to="/saved" className="rounded-xl border border-border bg-white p-5 transition hover:shadow-card"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Saved assets</p><p className="mt-3 font-display text-xl font-bold">Open your shortlist</p></Link><div className="rounded-xl border border-border bg-white p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Notifications</p><p className="mt-3 font-display text-xl font-bold">{unreadCount} unread</p></div><div className="rounded-xl border border-border bg-white p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Contributions</p><p className="mt-3 font-display text-xl font-bold">{contributions.length}</p></div></section>
+    {unreadNotifications.length > 0 ? <section className="mt-8 rounded-xl border border-border bg-white p-6"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl font-bold">Needs attention</h2><button type="button" onClick={() => void markAllRead()} className="text-xs font-semibold text-muted hover:text-foreground">Mark all read</button></div><ul className="mt-4 divide-y divide-border">{unreadNotifications.map((n) => <li key={n.id}>{n.href ? <Link to={n.href} onClick={() => void markRead(n.id)} className="block py-3"><p className="text-sm font-semibold">{n.title}</p>{n.body ? <p className="mt-1 text-xs text-muted">{n.body}</p> : null}<p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString()}</p></Link> : <button type="button" className="block w-full py-3 text-left" onClick={() => void markRead(n.id)}><p className="text-sm font-semibold">{n.title}</p>{n.body ? <p className="mt-1 text-xs text-muted">{n.body}</p> : null}</button>}</li>)}</ul></section> : null}
+    {!dataError && !recentLoading && recentItems.length > 0 ? <section className="mt-8 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Continue where you left off</h2><ul className="mt-4 divide-y divide-border">{recentItems.map((item) => <li key={`${item.entity_type}-${item.id}`}><Link to={item.href} className="flex items-center justify-between gap-3 py-3 hover:opacity-80"><span className="font-semibold">{item.title}</span><span className="text-xs capitalize text-muted">{item.entity_type.replace("_", " ")}</span></Link></li>)}</ul></section> : null}
+    <div className="mt-8 grid gap-6 md:grid-cols-2"><section className="rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Your projects</h2>{dataLoading ? <p className="mt-4 text-sm text-muted">Loading...</p> : ownedProjects.length ? <ul className="mt-4 divide-y divide-border">{ownedProjects.map((project) => <li key={project.id} className="py-3"><Link to={`/projects/${project.id}`} className="font-semibold hover:underline">{project.title}</Link><div className="mt-1 flex gap-2"><Badge>{formatStatus(project.status)}</Badge><span className="text-xs text-muted">{shortDate(project.updated_at)}</span></div></li>)}</ul> : <p className="mt-4 text-sm text-muted">No projects owned yet.</p>}</section><section className="rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Project memberships</h2>{dataLoading ? <p className="mt-4 text-sm text-muted">Loading...</p> : memberships.length ? <ul className="mt-4 divide-y divide-border">{memberships.map((m) => m.project ? <li key={m.project_id} className="py-3"><Link to={`/projects/${m.project.id}`} className="font-semibold hover:underline">{m.project.title}</Link><div className="mt-1 flex gap-2"><Badge>{formatStatus(m.project.status)}</Badge><Badge className="capitalize">{m.role}</Badge></div></li> : null)}</ul> : <p className="mt-4 text-sm text-muted">No project memberships yet.</p>}</section></div>
+    <section className="mt-8 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Your ideas</h2>{dataLoading ? <p className="mt-4 text-sm text-muted">Loading...</p> : authoredIdeas.length ? <ul className="mt-4 grid gap-3 sm:grid-cols-2">{authoredIdeas.map((idea) => <li key={idea.id}><Link to={`/ideas/${idea.id}`} className="block rounded-lg border border-border bg-surface p-4 transition hover:shadow-card"><p className="font-semibold">{idea.title}</p><div className="mt-2 flex gap-2"><Badge>{formatStatus(idea.status)}</Badge><span className="text-xs text-muted">{shortDate(idea.created_at)}</span></div></Link></li>)}</ul> : <EmptyState title="No ideas yet." description="Submit your first idea and it will appear here." action={<Button asChild size="sm"><Link to="/ideas/new">Submit an idea</Link></Button>} />}</section>
+    <section className="mt-8 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Recent contributions</h2>{contributions.length ? <ul className="mt-4 divide-y divide-border">{contributions.map((item) => <li key={item.id} className="py-3"><p className="text-sm font-semibold capitalize">{item.event_type.replaceAll("_", " ")}</p><p className="mt-1 text-xs text-muted">{item.entity_type.replace("_", " ")} · {shortDate(item.created_at)}</p></li>)}</ul> : <p className="mt-4 text-sm text-muted">No recent contribution activity recorded.</p>}</section>
+    {readNotifications.length > 0 ? <section className="mt-8 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Past notifications</h2><ul className="mt-4 divide-y divide-border">{readNotifications.slice(0, 10).map((n) => <li key={n.id} className="py-3">{n.href ? <Link to={n.href} className="hover:opacity-80"><p className="text-sm text-muted">{n.title}</p><p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString()}</p></Link> : <div><p className="text-sm text-muted">{n.title}</p><p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString()}</p></div>}</li>)}</ul></section> : null}
+  </div>;
 }
