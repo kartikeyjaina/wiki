@@ -12,8 +12,6 @@ create table public.profiles (
   avatar_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
-  ,constraint asset_collection_name_nonempty check (char_length(trim(name)) > 0)
-  ,constraint asset_collection_display_order_valid check (display_order > 0)
 );
 
 create or replace function public.handle_new_user()
@@ -51,9 +49,6 @@ create table public.wiki_pages (
   tags text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
-  ,constraint featured_kit_name_nonempty check (char_length(trim(name)) > 0)
-  ,constraint featured_kit_display_order_valid check (display_order > 0)
-  ,constraint featured_kit_package_size_valid check (package_size is null or package_size >= 0)
 );
 
 create table public.wiki_page_revisions (
@@ -74,7 +69,9 @@ create table public.asset_collections (
   is_visible boolean not null default true,
   archived_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint asset_collection_name_nonempty check (char_length(trim(name)) > 0),
+  constraint asset_collection_display_order_valid check (display_order > 0)
 );
 
 create table public.assets (
@@ -111,7 +108,10 @@ create table public.featured_kits (
   archived_at timestamptz,
   download_count integer not null default 0,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint featured_kit_name_nonempty check (char_length(trim(name)) > 0),
+  constraint featured_kit_display_order_valid check (display_order > 0),
+  constraint featured_kit_package_size_valid check (package_size is null or package_size >= 0)
 );
 
 create table public.featured_kit_collections (
