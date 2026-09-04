@@ -2,18 +2,12 @@ import { Link } from "react-router-dom";
 import type { Asset } from "@/types/domain";
 import { Badge } from "@/components/ui/Badge";
 import { formatStatus } from "@/lib/utils";
-import { IngredientGrid } from "@/components/ingredients/IngredientGrid";
+import { AssetThumbnail } from "@/components/assets/AssetThumbnail";
 
-export function AssetCard({ asset }: { asset: Asset }) {
+export function AssetCard({ asset, onPreview }: { asset: Asset; onPreview?: (asset: Asset) => void }) {
   return (
-    <Link to={`/assets/${asset.id}`} className="group block rounded-xl border border-border bg-white p-4 transition hover:border-[#1111112e] hover:bg-[#eff1f3] hover:shadow-card">
-      <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-lg bg-surface">
-        {asset.preview_url ? (
-          <img src={asset.preview_url} alt="" loading="lazy" className="h-full w-full object-contain" />
-        ) : (
-          <IngredientGrid />
-        )}
-      </div>
+    <Link to={`/assets/${asset.id}`} onClick={onPreview ? (event) => { event.preventDefault(); onPreview(asset); } : undefined} className="group block rounded-xl border border-border bg-white p-4 transition hover:border-[#1111112e] hover:bg-[#eff1f3] hover:shadow-card">
+      <AssetThumbnail asset={asset} />
       <div className="mt-4 flex flex-wrap gap-2">
         {asset.category ? <Badge>{asset.category}</Badge> : null}
         <Badge>{formatStatus(asset.status)}</Badge>

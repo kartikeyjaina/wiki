@@ -106,12 +106,6 @@ export function Login() {
       <section className="w-full max-w-md rounded-xl border border-border bg-white p-8 shadow-soft">
         <p className="font-display text-xl font-bold tracking-[-0.03em]">futurelab<span className="font-medium text-muted"> wiki</span></p>
         <h1 className="mt-10 font-display text-4xl font-bold tracking-[-0.03em]">{mode === "login" ? "Sign in to continue." : "Create your account."}</h1>
-        <p className="mt-4 text-sm leading-6 text-muted">
-          This internal workspace uses Supabase Email auth and accepts authorized Futurelab domains. The allowlist is configured with <strong>{env.allowedDomains.join(", ") || "your domains"}</strong> and is enforced by the database trigger and RLS.
-        </p>
-        <div className="mt-6 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
-          Domain check: <span className="font-semibold text-foreground">{isValidDomain("member@futurelab.com") ? "enabled" : "not configured"}</span>
-        </div>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="mt-8 space-y-4">
           {mode === "signup" ? (

@@ -4,11 +4,14 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAssets } from "@/hooks/useAssets";
+import { FilePreviewModal } from "@/components/assets/FilePreviewModal";
+import type { Asset } from "@/types/domain";
 
 export function Assets() {
   const { assets, loading, error } = useAssets();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
   const categories = useMemo(() => ["all", ...Array.from(new Set(assets.map((asset) => asset.category?.trim().toLowerCase()).filter((value): value is string => Boolean(value)))).sort()], [assets]);
 
   const filtered = useMemo(() => {
@@ -32,10 +35,11 @@ export function Assets() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-72" />)}</div>
       ) : filtered.length ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((asset) => <AssetCard key={asset.id} asset={asset} />)}</div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((asset) => <AssetCard key={asset.id} asset={asset} onPreview={setPreviewAsset} />)}</div>
       ) : (
         <EmptyState title={assets.length ? "No assets found." : "No assets yet."} description={assets.length ? "Try changing your filters." : "Import the existing repository or upload real assets through the admin workflow."} />
       )}
+      <FilePreviewModal asset={previewAsset} onClose={() => setPreviewAsset(null)} />
     </div>
   );
 }

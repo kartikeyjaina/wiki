@@ -24,7 +24,6 @@ export function Home() {
       <PageHeader
         eyebrow="Futurelab"
         title="Where Futurelab works, thinks, creates and shares."
-        description="A quiet internal workspace for knowledge, brand assets, ideas, projects, and the relationships between them."
       />
       <section className="grid gap-3 md:grid-cols-3">
         {areas.map((area) => {
