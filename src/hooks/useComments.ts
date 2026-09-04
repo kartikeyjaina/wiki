@@ -16,7 +16,15 @@ export function useComments(entityType: EntityType, entityId?: string) {
     setLoading(true);
     const { data, error: loadError } = await supabase
       .from("comments")
-      .select("*, author:profiles(id, display_name, role, avatar_url)")
+      .select(`
+        *,
+        author:profiles!comments_author_id_fkey(
+          id,
+          display_name,
+          role,
+          avatar_url
+        )
+      `)
       .eq("entity_type", entityType)
       .eq("entity_id", entityId)
       .order("created_at", { ascending: true });
