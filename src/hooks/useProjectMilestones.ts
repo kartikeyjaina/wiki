@@ -11,9 +11,10 @@ export function useProjectMilestones(projectId?: string) {
   const mutationRef = useRef(false);
 
   const load = useCallback(async () => {
-    if (!supabase || !projectId) { setLoading(false); return; }
+    const client = supabase;
+    if (!client || !projectId) { setLoading(false); return; }
     setLoading(true);
-    const { data, error: loadError } = await supabase.from("project_milestones").select("*").eq("project_id", projectId).order("display_order").order("created_at");
+    const { data, error: loadError } = await client.from("project_milestones").select("*").eq("project_id", projectId).order("display_order").order("created_at");
     if (!loadError) setMilestones((data ?? []) as ProjectMilestone[]);
     setError(loadError?.message ?? null);
     setLoading(false);
@@ -29,9 +30,10 @@ export function useProjectMilestones(projectId?: string) {
   }
 
   async function create(title: string, input: Omit<MilestoneInput, "title" | "display_order"> = {}) {
-    if (!supabase || !projectId) throw new Error("Supabase is not configured.");
+    const client = supabase;
+    if (!client || !projectId) throw new Error("Supabase is not configured.");
     await runMutation(async () => {
-      const { error: createError } = await supabase.rpc("create_project_milestone", {
+      const { error: createError } = await client.rpc("create_project_milestone", {
         p_project_id: projectId,
         p_title: title.trim(),
         p_description: input.description ?? null,
@@ -45,31 +47,34 @@ export function useProjectMilestones(projectId?: string) {
   }
 
   async function update(id: string, input: MilestoneInput) {
-    if (!supabase) throw new Error("Supabase is not configured.");
+    const client = supabase;
+    if (!client) throw new Error("Supabase is not configured.");
     await runMutation(async () => {
       const payload = { ...input, ...(input.title !== undefined ? { title: input.title.trim() } : {}), updated_at: new Date().toISOString() };
-      const { error: updateError } = await supabase.from("project_milestones").update(payload).eq("id", id).eq("project_id", projectId ?? "");
+      const { error: updateError } = await client.from("project_milestones").update(payload).eq("id", id).eq("project_id", projectId ?? "");
       if (updateError) throw updateError;
       await load();
     });
   }
 
   async function move(id: string, direction: "up" | "down") {
-    if (!supabase || !projectId) throw new Error("Supabase is not configured.");
+    const client = supabase;
+    if (!client || !projectId) throw new Error("Supabase is not configured.");
     const index = milestones.findIndex((item) => item.id === id); const swapIndex = direction === "up" ? index - 1 : index + 1;
     if (index < 0 || swapIndex < 0 || swapIndex >= milestones.length) return;
     const current = milestones[index]; const other = milestones[swapIndex];
     await runMutation(async () => {
-      const { error: moveError } = await supabase.rpc("swap_project_milestones", { p_project_id: projectId, p_current_id: current.id, p_other_id: other.id, p_actor_id: null });
+      const { error: moveError } = await client.rpc("swap_project_milestones", { p_project_id: projectId, p_current_id: current.id, p_other_id: other.id, p_actor_id: null });
       if (moveError) throw moveError;
       await load();
     });
   }
 
   async function remove(id: string) {
-    if (!supabase || !projectId) throw new Error("Supabase is not configured.");
+    const client = supabase;
+    if (!client || !projectId) throw new Error("Supabase is not configured.");
     await runMutation(async () => {
-      const { error: deleteError } = await supabase.from("project_milestones").delete().eq("id", id).eq("project_id", projectId);
+      const { error: deleteError } = await client.from("project_milestones").delete().eq("id", id).eq("project_id", projectId);
       if (deleteError) throw deleteError;
       await load();
     });
