@@ -97,21 +97,24 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
     const requestId = requestIdRef.current;
     setLoadingMore(true);
     setError(null);
-    const { data, error: searchError } = await client.rpc("global_search", {
-      search_query: normalizedQuery,
-      type_filter: filter === "all" ? null : filter,
-      page_size: SEARCH_PAGE_SIZE,
-      page_offset: results.length,
-    });
-    if (requestId !== requestIdRef.current) return;
-    if (searchError) {
-      setError("More results could not be loaded. Please try again.");
-    } else {
-      const next = (data ?? []) as SearchResult[];
-      setResults((current) => [...current, ...next]);
-      setHasMore(next.length === SEARCH_PAGE_SIZE);
+    try {
+      const { data, error: searchError } = await client.rpc("global_search", {
+        search_query: normalizedQuery,
+        type_filter: filter === "all" ? null : filter,
+        page_size: SEARCH_PAGE_SIZE,
+        page_offset: results.length,
+      });
+      if (requestId !== requestIdRef.current) return;
+      if (searchError) {
+        setError("More results could not be loaded. Please try again.");
+      } else {
+        const next = (data ?? []) as SearchResult[];
+        setResults((current) => [...current, ...next]);
+        setHasMore(next.length === SEARCH_PAGE_SIZE);
+      }
+    } finally {
+      if (requestId === requestIdRef.current) setLoadingMore(false);
     }
-    setLoadingMore(false);
   }
 
   const grouped = useMemo(() => results.reduce<Record<string, SearchResult[]>>((acc, result) => {
