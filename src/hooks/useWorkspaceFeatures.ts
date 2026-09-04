@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntityType } from "@/types/domain";
 import { supabase } from "@/lib/supabase";
 
@@ -43,21 +43,29 @@ export function useNotifications() {
 export function useEntityFollow(entityType: EntityType, entityId?: string) {
   const [following, setFollowing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mutationRef = useRef(false);
   useEffect(() => {
-    if (!supabase || !entityId) return;
+    let active = true;
+    if (!supabase || !entityId) { setFollowing(false); return () => { active = false; }; }
     setError(null);
-    void supabase.from("entity_follows").select("id").eq("entity_type", entityType).eq("entity_id", entityId).maybeSingle().then(({ data, error: loadError }) => {
+    const client = supabase;
+    void client.from("entity_follows").select("id").eq("entity_type", entityType).eq("entity_id", entityId).maybeSingle().then(({ data, error: loadError }) => {
+      if (!active) return;
       if (loadError) setError("Follow status could not be loaded."); else setFollowing(Boolean(data));
     });
+    return () => { active = false; };
   }, [entityId, entityType]);
   async function toggle() {
-    if (!supabase || !entityId) return;
+    if (!supabase || !entityId || mutationRef.current) return;
+    mutationRef.current = true;
     setError(null);
-    const result = following
-      ? await supabase.from("entity_follows").delete().eq("entity_type", entityType).eq("entity_id", entityId)
-      : await supabase.from("entity_follows").insert({ entity_type: entityType, entity_id: entityId });
-    if (result.error) { const message = "The follow change could not be saved."; setError(message); reportActionError(message); return; }
-    setFollowing((value) => !value);
+    try {
+      const result = following
+        ? await supabase.from("entity_follows").delete().eq("entity_type", entityType).eq("entity_id", entityId)
+        : await supabase.from("entity_follows").insert({ entity_type: entityType, entity_id: entityId });
+      if (result.error) { const message = "The follow change could not be saved."; setError(message); reportActionError(message); return; }
+      setFollowing(!following);
+    } finally { mutationRef.current = false; }
   }
   return { following, error, toggle };
 }
@@ -65,21 +73,29 @@ export function useEntityFollow(entityType: EntityType, entityId?: string) {
 export function useSavedAsset(assetId?: string) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mutationRef = useRef(false);
   useEffect(() => {
-    if (!supabase || !assetId) return;
+    let active = true;
+    if (!supabase || !assetId) { setSaved(false); return () => { active = false; }; }
     setError(null);
-    void supabase.from("user_asset_saves").select("asset_id").eq("asset_id", assetId).maybeSingle().then(({ data, error: loadError }) => {
+    const client = supabase;
+    void client.from("user_asset_saves").select("asset_id").eq("asset_id", assetId).maybeSingle().then(({ data, error: loadError }) => {
+      if (!active) return;
       if (loadError) setError("Saved status could not be loaded."); else setSaved(Boolean(data));
     });
+    return () => { active = false; };
   }, [assetId]);
   async function toggle() {
-    if (!supabase || !assetId) return;
+    if (!supabase || !assetId || mutationRef.current) return;
+    mutationRef.current = true;
     setError(null);
-    const result = saved
-      ? await supabase.from("user_asset_saves").delete().eq("asset_id", assetId)
-      : await supabase.from("user_asset_saves").insert({ asset_id: assetId });
-    if (result.error) { const message = "The saved-asset change could not be saved."; setError(message); reportActionError(message); return; }
-    setSaved((value) => !value);
+    try {
+      const result = saved
+        ? await supabase.from("user_asset_saves").delete().eq("asset_id", assetId)
+        : await supabase.from("user_asset_saves").insert({ asset_id: assetId });
+      if (result.error) { const message = "The saved-asset change could not be saved."; setError(message); reportActionError(message); return; }
+      setSaved(!saved);
+    } finally { mutationRef.current = false; }
   }
   return { saved, error, toggle };
 }
@@ -89,8 +105,11 @@ export function useRecentlyViewed(entityType: EntityType, entityId?: string) {
     if (!supabase || !entityId) return;
     const client = supabase;
     const timer = window.setTimeout(() => {
-      void client.auth.getUser().then(({ data }) => {
-        if (data.user) void client.from("recently_viewed").upsert({ user_id: data.user.id, entity_type: entityType, entity_id: entityId, last_viewed_at: new Date().toISOString() }, { onConflict: "user_id,entity_type,entity_id" });
+      void client.auth.getUser().then(({ data, error }) => {
+        if (error || !data.user) return;
+        void client.from("recently_viewed").upsert({ user_id: data.user.id, entity_type: entityType, entity_id: entityId, last_viewed_at: new Date().toISOString() }, { onConflict: "user_id,entity_type,entity_id" }).then(({ error: upsertError }) => {
+          if (upsertError) console.warn("Recently viewed update failed", upsertError);
+        });
       });
     }, 700);
     return () => window.clearTimeout(timer);
