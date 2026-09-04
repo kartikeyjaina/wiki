@@ -64,7 +64,12 @@ create table public.asset_collections (
   name text not null,
   slug text not null unique,
   description text,
-  created_at timestamptz not null default now()
+  display_order integer not null default 0,
+  accent text not null default 'sage',
+  is_visible boolean not null default true,
+  archived_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table public.assets (
@@ -84,6 +89,31 @@ create table public.assets (
   usage_guidance text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table public.featured_kits (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text not null default '',
+  package_storage_path text,
+  package_size bigint,
+  mime_type text not null default 'application/zip',
+  display_order integer not null default 0,
+  is_visible boolean not null default true,
+  is_featured boolean not null default true,
+  accent text not null default 'sage',
+  archived_at timestamptz,
+  download_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.featured_kit_collections (
+  kit_id uuid not null references public.featured_kits(id) on delete cascade,
+  collection_id uuid not null references public.asset_collections(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (kit_id, collection_id)
 );
 
 create table public.asset_versions (
@@ -202,6 +232,8 @@ create index comments_entity_idx on public.comments(entity_type, entity_id);
 create index activity_entity_idx on public.activity_events(entity_type, entity_id, created_at desc);
 create index assets_category_idx on public.assets(category);
 create index assets_status_idx on public.assets(status);
+create index asset_collections_order_idx on public.asset_collections(display_order);
+create index featured_kits_order_idx on public.featured_kits(display_order);
 create index project_todos_project_id_idx on public.project_todos(project_id);
 
 create or replace view public.idea_feed as
@@ -258,6 +290,8 @@ alter table public.asset_collections enable row level security;
 alter table public.assets enable row level security;
 alter table public.asset_versions enable row level security;
 alter table public.asset_tags enable row level security;
+alter table public.featured_kits enable row level security;
+alter table public.featured_kit_collections enable row level security;
 alter table public.idea_categories enable row level security;
 alter table public.ideas enable row level security;
 alter table public.idea_votes enable row level security;
@@ -276,10 +310,14 @@ create policy "admins can manage wiki" on public.wiki_pages for all to authentic
 create policy "members can read wiki revisions" on public.wiki_page_revisions for select to authenticated using (true);
 create policy "admins can manage wiki revisions" on public.wiki_page_revisions for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
-create policy "members can read assets" on public.assets for select to authenticated using (true);
+create policy "members can read assets" on public.assets for select to authenticated using (public.is_admin() or not exists (select 1 from public.asset_collections c where c.id = assets.collection_id) or exists (select 1 from public.asset_collections c where c.id = assets.collection_id and c.is_visible = true and c.archived_at is null));
 create policy "admins can manage assets" on public.assets for all to authenticated using (public.is_admin()) with check (public.is_admin());
-create policy "members can read asset collections" on public.asset_collections for select to authenticated using (true);
+create policy "members can read asset collections" on public.asset_collections for select to authenticated using (public.is_admin() or (is_visible = true and archived_at is null));
 create policy "admins can manage asset collections" on public.asset_collections for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "members can read featured kits" on public.featured_kits for select to authenticated using (public.is_admin() or (is_visible = true and is_featured = true and archived_at is null));
+create policy "admins can manage featured kits" on public.featured_kits for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "members can read kit collections" on public.featured_kit_collections for select to authenticated using (exists (select 1 from public.featured_kits k where k.id = kit_id and (public.is_admin() or (k.is_visible = true and k.is_featured = true and k.archived_at is null))));
+create policy "admins can manage kit collections" on public.featured_kit_collections for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read asset versions" on public.asset_versions for select to authenticated using (true);
 create policy "admins can manage asset versions" on public.asset_versions for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read asset tags" on public.asset_tags for select to authenticated using (true);
@@ -338,3 +376,31 @@ drop policy if exists "admins can delete brand assets" on storage.objects;
 create policy "admins can delete brand assets" on storage.objects
 for delete to authenticated
 using (bucket_id = 'brand-assets' and public.is_admin());
+
+insert into public.asset_collections (name, slug, description, display_order, accent)
+values
+  ('Brand Guidelines & Identity', 'brand-guidelines-identity', 'Master guidance, voice, positioning, and the complete brand system.', 1, 'sage'),
+  ('Logos', 'logos', 'Official source marks and usage-ready sizes for web, email, and print.', 2, 'butter'),
+  ('Typography & Fonts', 'typography-fonts', 'Space Grotesk, Inter, font licenses, hierarchy, and implementation files.', 3, 'sky'),
+  ('Colour Palettes', 'colour-palettes', 'Core monochrome values, accent colours, accessibility, and portable design tokens.', 4, 'blush'),
+  ('Imagery & Photography', 'imagery-photography', 'Team portraits, workshop photography, and original brand imagery.', 5, 'lilac'),
+  ('Video & Meeting Assets', 'video-meeting-assets', 'Zoom backgrounds, motion tokens, and presentation-ready visual space.', 6, 'sage'),
+  ('Templates & Stationery', 'templates-stationery', 'Email signatures, letterhead, and presentation foundations.', 7, 'butter'),
+  ('Social Media & Marketing', 'social-media-marketing', 'LinkedIn, X, Facebook, YouTube, Instagram, and social post formats.', 8, 'blush'),
+  ('Product, Web & Interface', 'product-web-interface', 'Design tokens, components, digital states, icons, and data visualisation guidance.', 9, 'sky'),
+  ('Events & Environmental', 'events-environmental', 'Stage screens, banners, badges, workshop signage, and printable event tools.', 10, 'lilac'),
+  ('People, Recruitment & Internal Brand', 'people-recruitment-internal-brand', 'Employee cards, recruitment, onboarding, recognition, and internal communication.', 11, 'sage'),
+  ('Governance, Archive & Source Files', 'governance-archive-source-files', 'Inventory, approvals, provenance, naming rules, specifications, and deprecated files.', 12, 'butter')
+on conflict (slug) do update set name = excluded.name, description = excluded.description, display_order = excluded.display_order, accent = excluded.accent;
+
+insert into public.featured_kits (name, slug, description, display_order, accent)
+values
+  ('Complete Brand Library', 'complete-brand-library', 'The complete lightweight working library; large imagery and meeting files stay in focused packs.', 1, 'sage'),
+  ('Logo Pack', 'logo-pack', 'Official masters plus usage-ready exports for digital and print.', 2, 'butter'),
+  ('Meeting Backgrounds', 'meeting-backgrounds', 'Six polished 1920×1080 backgrounds for Zoom and Teams.', 3, 'sky'),
+  ('Email Signatures', 'email-signatures', 'Four email-safe HTML signatures plus a visual setup reference.', 4, 'blush'),
+  ('Social Media Kit', 'social-media-kit', 'Channel banners and post templates for the complete social system.', 5, 'lilac'),
+  ('Imagery Pack', 'imagery-pack', 'Team portraits, workshop photography, and original imagery.', 6, 'sage'),
+  ('Product Web Kit', 'product-web-kit', 'Design tokens, interface foundations, and digital accessibility guidance.', 7, 'butter'),
+  ('Governance Kit', 'governance-kit', 'Brand rules, approval tools, inventory, provenance, and platform specifications.', 8, 'sky')
+on conflict (slug) do update set name = excluded.name, description = excluded.description, display_order = excluded.display_order, accent = excluded.accent;

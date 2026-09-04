@@ -62,6 +62,38 @@ export interface Asset {
   updated_at: string;
 }
 
+export interface AssetCollection {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  display_order: number;
+  accent: string;
+  is_visible: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  file_count?: number;
+}
+
+export interface FeaturedKit {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  package_storage_path: string | null;
+  package_size: number | null;
+  mime_type: string;
+  display_order: number;
+  is_visible: boolean;
+  is_featured: boolean;
+  accent: string;
+  archived_at: string | null;
+  download_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AssetVersion {
   id: string;
   asset_id: string;

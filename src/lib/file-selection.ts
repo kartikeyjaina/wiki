@@ -1,0 +1,156 @@
+export type UploadState = "queued" | "uploading" | "uploaded" | "failed";
+
+export type UploadEntry = {
+  id: string;
+  file: File;
+  name: string;
+  relativePath?: string;
+  size: number;
+  mimeType: string;
+  state: UploadState;
+  progress: number;
+  message?: string;
+};
+
+export type FileWithRelativePath = File & { webkitRelativePath?: string };
+export type FileSelection = { file: File; relativePath?: string };
+
+export interface FileSystemFileHandleLike {
+  kind: "file";
+  name: string;
+  getFile(): Promise<File>;
+}
+
+export interface FileSystemDirectoryHandleLike {
+  kind: "directory";
+  name: string;
+  values(): AsyncIterableIterator<FileSystemHandleLike>;
+}
+
+export type FileSystemHandleLike = FileSystemFileHandleLike | FileSystemDirectoryHandleLike;
+
+export interface DataTransferFileEntryLike {
+  isFile: boolean;
+  isDirectory: boolean;
+  name: string;
+  file(callback: (file: File) => void, errorCallback?: (error: DOMException) => void): void;
+  createReader(): DataTransferDirectoryReaderLike;
+}
+
+export interface DataTransferDirectoryReaderLike {
+  readEntries(callback: (entries: DataTransferFileEntryLike[]) => void, errorCallback?: (error: DOMException) => void): void;
+}
+
+type DirectoryPickerWindow = Window & {
+  showDirectoryPicker?: () => Promise<FileSystemDirectoryHandleLike>;
+};
+
+export function supportsDirectoryPicker() {
+  return typeof window !== "undefined" && typeof (window as DirectoryPickerWindow).showDirectoryPicker === "function";
+}
+
+export function createUploadEntries(selection: Iterable<FileSelection>): UploadEntry[] {
+  const entries: UploadEntry[] = [];
+  const seen = new Set<string>();
+  for (const item of selection) {
+    const relativePath = sanitizeRelativePath(item.relativePath);
+    const identity = `${relativePath ?? item.file.name}\u0000${item.file.size}\u0000${item.file.lastModified}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    entries.push({
+      id: crypto.randomUUID(),
+      file: item.file,
+      name: item.file.name.replace(/\.[^/.]+$/, ""),
+      relativePath,
+      size: item.file.size,
+      mimeType: item.file.type || "application/octet-stream",
+      state: "queued",
+      progress: 0,
+    });
+  }
+  return entries;
+}
+
+export function normalizeFileList(files: FileList | Iterable<File>): UploadEntry[] {
+  return createUploadEntries(Array.from(files, (file) => ({
+    file,
+    relativePath: (file as FileWithRelativePath).webkitRelativePath || undefined,
+  })));
+}
+
+export function sanitizeRelativePath(relativePath?: string): string | undefined {
+  if (!relativePath) return undefined;
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (normalized.startsWith("/") || /^[a-zA-Z]:\//.test(normalized)) return undefined;
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.some((part) => part === ".." || part.includes("\0"))) return undefined;
+  const safeParts = parts
+    .filter((part) => part !== ".")
+    .map((part) => part.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/^\.+$/, "-"))
+    .filter(Boolean);
+  return safeParts.length ? safeParts.join("/") : undefined;
+}
+
+export async function selectDirectory(): Promise<FileSelection[]> {
+  const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
+  if (!picker) throw new Error("Folder selection is not supported in this browser. Use Choose files instead.");
+  const directory = await picker();
+  return readDirectoryHandle(directory);
+}
+
+export async function readDirectoryHandle(directory: FileSystemDirectoryHandleLike, prefix = directory.name): Promise<FileSelection[]> {
+  const selection: FileSelection[] = [];
+  for await (const entry of directory.values()) {
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.kind === "file") selection.push({ file: await entry.getFile(), relativePath });
+    else selection.push(...await readDirectoryHandle(entry, relativePath));
+  }
+  return selection;
+}
+
+export async function readDataTransferItems(items: Iterable<DataTransferItem>): Promise<FileSelection[]> {
+  const selection: FileSelection[] = [];
+  for (const item of items) {
+    if (item.kind !== "file") continue;
+    const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => unknown }).webkitGetAsEntry?.() as DataTransferFileEntryLike | null | undefined;
+    if (entry?.isDirectory) selection.push(...await readDataTransferDirectory(entry));
+    else {
+      const file = item.getAsFile();
+      if (file) selection.push({ file });
+    }
+  }
+  return selection;
+}
+
+async function readDataTransferDirectory(directory: DataTransferFileEntryLike, prefix = ""): Promise<FileSelection[]> {
+  const selection: FileSelection[] = [];
+  const directoryPath = prefix ? `${prefix}/${directory.name}` : directory.name;
+  for (const entry of await readDataTransferEntries(directory)) {
+    if (entry.isFile) {
+      const file = await readDataTransferFile(entry);
+      selection.push({ file, relativePath: `${directoryPath}/${entry.name}` });
+    } else if (entry.isDirectory) {
+      selection.push(...await readDataTransferDirectory(entry, directoryPath));
+    }
+  }
+  return selection;
+}
+
+function readDataTransferEntries(directory: DataTransferFileEntryLike): Promise<DataTransferFileEntryLike[]> {
+  const reader = directory.createReader();
+  const entries: DataTransferFileEntryLike[] = [];
+  return new Promise((resolve, reject) => {
+    const read = () => reader.readEntries((batch) => {
+      if (!batch.length) resolve(entries);
+      else {
+        entries.push(...batch);
+        read();
+      }
+    }, reject);
+    read();
+  });
+}
+
+function readDataTransferFile(entry: DataTransferFileEntryLike): Promise<File> {
+  return new Promise((resolve, reject) => entry.file(resolve, reject));
+}
