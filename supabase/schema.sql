@@ -129,6 +129,8 @@ create table public.asset_versions (
   created_at timestamptz not null default now()
 );
 
+create unique index asset_versions_asset_id_version_idx on public.asset_versions(asset_id, version);
+
 create table public.asset_tags (
   asset_id uuid not null references public.assets(id) on delete cascade,
   tag text not null,
@@ -335,7 +337,14 @@ as $$
   from public.profiles p
   where (type_filter is null or type_filter = 'people') and coalesce(p.display_name, '') ilike '%' || search_query || '%'
   union all
-  select c.id, 'comment'::entity_type, left(c.body, 90), c.body, '/' || c.entity_type::text || 's/' || c.entity_id::text
+  select c.id, 'comment'::entity_type, left(c.body, 90), c.body,
+    case c.entity_type
+      when 'idea' then '/ideas/' || c.entity_id::text
+      when 'project' then '/projects/' || c.entity_id::text
+      when 'asset' then '/assets/' || c.entity_id::text
+      when 'wiki_page' then '/wiki/' || c.entity_id::text
+      else '#'
+    end
   from public.comments c
   where (type_filter is null or type_filter = 'comments') and c.body ilike '%' || search_query || '%'
   union all
@@ -469,6 +478,7 @@ using (
     public.is_admin()
     or exists (select 1 from public.assets a join public.asset_collections c on c.id = a.collection_id where a.storage_path = name and c.is_visible = true and c.archived_at is null)
     or exists (select 1 from public.assets a where a.storage_path = name and a.collection_id is null)
+    or exists (select 1 from public.asset_versions av join public.assets a on a.id = av.asset_id left join public.asset_collections c on c.id = a.collection_id where av.storage_path = name and (a.collection_id is null or (c.is_visible = true and c.archived_at is null)))
     or exists (select 1 from public.featured_kits k where k.package_storage_path = name and k.is_visible = true and k.is_featured = true and k.archived_at is null)
   )
 );

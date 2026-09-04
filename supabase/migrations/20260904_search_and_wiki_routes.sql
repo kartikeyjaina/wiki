@@ -20,7 +20,14 @@ as $$
   from public.ideas i
   where (type_filter is null or type_filter = 'ideas') and concat_ws(' ', i.title, i.description) ilike '%' || search_query || '%'
   union all
-  select c.id, 'comment'::public.entity_type, left(c.body, 90), c.body, '/' || c.entity_type::text || 's/' || c.entity_id::text
+  select c.id, 'comment'::public.entity_type, left(c.body, 90), c.body,
+    case c.entity_type
+      when 'idea' then '/ideas/' || c.entity_id::text
+      when 'project' then '/projects/' || c.entity_id::text
+      when 'asset' then '/assets/' || c.entity_id::text
+      when 'wiki_page' then '/wiki/' || c.entity_id::text
+      else '#'
+    end
   from public.comments c
   where (type_filter is null or type_filter = 'comments') and c.body ilike '%' || search_query || '%'
   union all

@@ -146,6 +146,9 @@ export interface WikiRevision {
   wiki_page_id: string;
   author_id: string | null;
   content: string;
+  title: string | null;
+  tags: string[];
+  change_summary: string | null;
   created_at: string;
   author?: Profile | null;
 }

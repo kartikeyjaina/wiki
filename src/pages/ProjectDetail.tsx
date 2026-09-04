@@ -20,6 +20,8 @@ import { ProjectAttachments } from "@/components/projects/ProjectAttachments";
 import { getProjectHealth, projectHealthLabels } from "@/lib/project-workflow";
 import { getProjectPermissions } from "@/lib/project-permissions";
 import { ProjectMembers } from "@/components/projects/ProjectMembers";
+import { useProjectTodos } from "@/hooks/useProjectTodos";
+import { useProjectMilestones } from "@/hooks/useProjectMilestones";
 
 export function ProjectDetail() {
   const { id } = useParams();
@@ -28,6 +30,8 @@ export function ProjectDetail() {
   const { profile, isAdmin } = useProfile();
   const project = projects.find((item) => item.id === id);
   const { members } = useProjectMembers(project?.id ?? "");
+  const { todos } = useProjectTodos(project?.id ?? "");
+  const { milestones } = useProjectMilestones(project?.id);
   const { following, toggle: toggleFollowing } = useEntityFollow("project", project?.id);
   useRecentlyViewed("project", project?.id);
   const [editing, setEditing] = useState(false);
@@ -38,7 +42,14 @@ export function ProjectDetail() {
   if (loading) return <p className="text-sm text-muted">Loading project...</p>;
   if (!project) return <EmptyState title="Project not found." description="Only stored projects appear here." />;
   const currentProject = project;
-  const health = getProjectHealth({ status: project.status, dueDate: project.due_date });
+  const health = getProjectHealth({
+    status: project.status,
+    dueDate: project.due_date,
+    completedTodos: todos.filter((todo) => todo.completed).length,
+    totalTodos: todos.length,
+    completedMilestones: milestones.filter((milestone) => milestone.status === "completed").length,
+    totalMilestones: milestones.length,
+  });
   const permissions = getProjectPermissions(project, profile, members);
   const tab = searchParams.get("tab") === "discussion" || searchParams.get("tab") === "todo" ? searchParams.get("tab") : "overview";
   function startEditing() { setTitle(currentProject.title); setDescription(currentProject.description ?? ""); setEditing(true); }
