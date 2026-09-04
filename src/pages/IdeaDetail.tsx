@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -14,9 +14,11 @@ import { ideaStatusLabels, getIdeaTransitions } from "@/lib/idea-workflow";
 import { recordActivity } from "@/lib/activity";
 import { supabase } from "@/lib/supabase";
 import { useEntityFollow, useRecentlyViewed } from "@/hooks/useWorkspaceFeatures";
+import { RelationshipPanel } from "@/components/relationships/RelationshipPanel";
 
 export function IdeaDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { ideas, loading, reload } = useIdeas();
   const { profile, session } = useProfile();
   const { events } = useActivity("idea", id);
@@ -50,6 +52,18 @@ export function IdeaDetail() {
     setUpdating(false);
   }
 
+  async function startProject() {
+    if (!supabase || !canDecide) return;
+    const existing = projects.find((project) => project.originating_idea_id === currentIdea.id);
+    if (existing) { navigate(`/projects/${existing.id}`); return; }
+    setUpdating(true);
+    const result = await supabase.from("projects").insert({ title: currentIdea.title, description: currentIdea.description, status: "planned", originating_idea_id: currentIdea.id, owner_id: session?.user.id ?? null }).select("id").single();
+    if (result.error) { setUpdateError(result.error.message); setUpdating(false); return; }
+    await supabase.from("ideas").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", currentIdea.id);
+    await recordActivity("idea", currentIdea.id, "project_created", { project_id: result.data.id });
+    navigate(`/projects/${result.data.id}`);
+  }
+
   return (
     <div>
       <Link to="/ideas" className="mb-6 inline-block text-sm font-semibold text-muted hover:text-foreground">← Ideas</Link>
@@ -59,13 +73,14 @@ export function IdeaDetail() {
           <PageHeader eyebrow={idea.category?.name ?? "Idea"} title={idea.title} />
           <div className="mb-5"><Button size="sm" variant="secondary" onClick={() => void toggleFollowing()}>{following ? "Watching" : "Watch idea"}</Button></div>
           <div className="mb-5 flex flex-wrap items-center gap-2"><Badge>{ideaStatusLabels[idea.status]}</Badge>{idea.author?.display_name ? <Badge>{idea.author.display_name}</Badge> : null}</div>
-          {canDecide && transitions.length ? <div className="mb-8 flex flex-wrap gap-2">{transitions.map((transition) => <Button key={transition.status} size="sm" variant={transition.status === "declined" ? "secondary" : "primary"} disabled={updating} onClick={() => void changeStatus(transition.status)}>{transition.label}</Button>)}</div> : null}
+          {canDecide && transitions.length ? <div className="mb-8 flex flex-wrap gap-2">{transitions.map((transition) => <Button key={transition.status} size="sm" variant={transition.status === "declined" ? "secondary" : "primary"} disabled={updating} onClick={() => transition.status === "in_progress" && currentIdea.status === "planned" ? void startProject() : void changeStatus(transition.status)}>{transition.label}</Button>)}</div> : null}
           {updateError ? <p className="mb-5 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium" role="alert">{updateError}</p> : null}
           <section className="prose max-w-none rounded-xl border border-border bg-white p-6">
             <p className="whitespace-pre-wrap leading-7 text-foreground">{idea.description}</p>
             {idea.why_it_matters ? <><h2 className="mt-8 font-display text-2xl font-bold tracking-[-0.03em]">Why it matters</h2><p className="whitespace-pre-wrap leading-7 text-muted">{idea.why_it_matters}</p></> : null}
           </section>
           <CommentsPanel entityType="idea" entityId={idea.id} />
+                    <RelationshipPanel entityType="idea" entityId={idea.id} />
           {statusEvent ? <p className="mt-4 text-xs text-muted">Status changed to {ideaStatusLabels[idea.status]} by {statusEvent.actor?.display_name ?? "a workspace member"} on {new Date(statusEvent.created_at).toLocaleDateString()}</p> : null}
           {relatedProject ? <section className="mt-6 rounded-xl border border-border bg-white p-6"><h2 className="font-display text-xl font-bold">Related project</h2><Link to={`/projects/${relatedProject.id}`} className="mt-3 block font-semibold hover:underline">{relatedProject.title}</Link><p className="mt-1 text-sm text-muted">{relatedProject.description || "No description provided."}</p></section> : null}
         </div>

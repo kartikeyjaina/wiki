@@ -5,14 +5,16 @@ import type { EntityRelationship, EntityType } from "@/types/domain";
 export function useRelationships(entityType: EntityType, entityId?: string) {
   const [relationships, setRelationships] = useState<EntityRelationship[]>([]);
   const [loading, setLoading] = useState(Boolean(supabase && entityId));
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase || !entityId) {
       setLoading(false);
       return;
     }
-    const { data } = await supabase.rpc("entity_relationship_details", { entity_type_input: entityType, entity_id_input: entityId });
+    const { data, error: loadError } = await supabase.rpc("entity_relationship_details", { entity_type_input: entityType, entity_id_input: entityId });
     setRelationships((data ?? []) as EntityRelationship[]);
+    setError(loadError?.message ?? null);
     setLoading(false);
   }, [entityId, entityType]);
 
@@ -20,5 +22,5 @@ export function useRelationships(entityType: EntityType, entityId?: string) {
     void load();
   }, [load]);
 
-  return { relationships, loading, reload: load };
+  return { relationships, loading, error, reload: load };
 }

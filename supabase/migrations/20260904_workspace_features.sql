@@ -48,6 +48,23 @@ create table if not exists public.project_milestones (
 );
 create index if not exists project_milestones_project_idx on public.project_milestones(project_id, display_order);
 
+create or replace function public.entity_relationship_details(entity_type_input public.entity_type, entity_id_input uuid)
+returns table(id uuid, from_type public.entity_type, from_id uuid, to_type public.entity_type, to_id uuid, relationship_type text, title text, href text)
+language sql stable security invoker
+as $$
+  with related as (
+    select r.id, r.from_type, r.from_id, r.to_type, r.to_id, r.relationship_type from public.entity_relationships r where r.from_type = entity_type_input and r.from_id = entity_id_input
+    union all
+    select r.id, r.from_type, r.from_id, r.to_type, r.to_id, r.relationship_type from public.entity_relationships r where r.to_type = entity_type_input and r.to_id = entity_id_input
+  )
+  select related.id, related.from_type, related.from_id, related.to_type, related.to_id, related.relationship_type,
+    case when related.from_type = entity_type_input and related.from_id = entity_id_input then
+      case related.to_type when 'asset' then (select a.name from public.assets a where a.id = related.to_id) when 'idea' then (select i.title from public.ideas i where i.id = related.to_id) when 'project' then (select p.title from public.projects p where p.id = related.to_id) when 'wiki_page' then (select w.title from public.wiki_pages w where w.id = related.to_id) when 'person' then (select coalesce(p.display_name, 'Profile') from public.profiles p where p.id = related.to_id) else 'Related record' end
+    else case related.from_type when 'asset' then (select a.name from public.assets a where a.id = related.from_id) when 'idea' then (select i.title from public.ideas i where i.id = related.from_id) when 'project' then (select p.title from public.projects p where p.id = related.from_id) when 'wiki_page' then (select w.title from public.wiki_pages w where w.id = related.from_id) when 'person' then (select coalesce(p.display_name, 'Profile') from public.profiles p where p.id = related.from_id) else 'Related record' end end,
+    case when related.from_type = entity_type_input and related.from_id = entity_id_input then '/' || related.to_type::text || 's/' || related.to_id::text else '/' || related.from_type::text || 's/' || related.from_id::text end
+  from related;
+$$;
+
 alter table public.notifications enable row level security;
 alter table public.entity_follows enable row level security;
 alter table public.user_asset_saves enable row level security;

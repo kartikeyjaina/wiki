@@ -272,7 +272,8 @@ as $$
   union all
   select a.id, 'asset'::entity_type, a.name, a.category, '/assets/' || a.id::text
   from public.assets a
-  where (type_filter is null or type_filter = 'assets') and a.name ilike '%' || search_query || '%'
+  left join public.asset_collections ac on ac.id = a.collection_id
+  where (type_filter is null or type_filter = 'assets') and concat_ws(' ', a.name, a.category, a.asset_type, ac.name, a.metadata::text) ilike '%' || search_query || '%'
   union all
   select i.id, 'idea'::entity_type, i.title, left(i.description, 180), '/ideas/' || i.id::text
   from public.ideas i
@@ -281,7 +282,46 @@ as $$
   select p.id, 'person'::entity_type, coalesce(p.display_name, 'Profile'), p.role::text, '/people/' || p.id::text
   from public.profiles p
   where (type_filter is null or type_filter = 'people') and coalesce(p.display_name, '') ilike '%' || search_query || '%'
+  union all
+  select c.id, 'comment'::entity_type, left(c.body, 90), c.body, '/' || c.entity_type::text || 's/' || c.entity_id::text
+  from public.comments c
+  where (type_filter is null or type_filter = 'comments') and c.body ilike '%' || search_query || '%'
+  union all
+  select p.id, 'project'::entity_type, p.title, p.description, '/projects/' || p.id::text
+  from public.projects p
+  where (type_filter is null or type_filter = 'projects') and concat_ws(' ', p.title, p.description, p.status) ilike '%' || search_query || '%'
   limit 30;
+$$;
+
+create or replace function public.entity_relationship_details(entity_type_input entity_type, entity_id_input uuid)
+returns table(id uuid, from_type entity_type, from_id uuid, to_type entity_type, to_id uuid, relationship_type text, title text, href text)
+language sql stable security invoker
+as $$
+  with related as (
+    select r.id, r.from_type, r.from_id, r.to_type, r.to_id, r.relationship_type
+    from public.entity_relationships r where r.from_type = entity_type_input and r.from_id = entity_id_input
+    union all
+    select r.id, r.from_type, r.from_id, r.to_type, r.to_id, r.relationship_type
+    from public.entity_relationships r where r.to_type = entity_type_input and r.to_id = entity_id_input
+  )
+  select related.id, related.from_type, related.from_id, related.to_type, related.to_id, related.relationship_type,
+    case related.to_type
+      when 'asset' then (select a.name from public.assets a where a.id = related.to_id)
+      when 'idea' then (select i.title from public.ideas i where i.id = related.to_id)
+      when 'project' then (select p.title from public.projects p where p.id = related.to_id)
+      when 'wiki_page' then (select w.title from public.wiki_pages w where w.id = related.to_id)
+      when 'person' then (select coalesce(p.display_name, 'Profile') from public.profiles p where p.id = related.to_id)
+      else 'Related record'
+    end,
+    case related.to_type
+      when 'asset' then '/assets/' || related.to_id::text
+      when 'idea' then '/ideas/' || related.to_id::text
+      when 'project' then '/projects/' || related.to_id::text
+      when 'wiki_page' then '/brand'
+      when 'person' then '/people/' || related.to_id::text
+      else '#'
+    end
+  from related;
 $$;
 
 create or replace function public.is_admin()

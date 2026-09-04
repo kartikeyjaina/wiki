@@ -14,6 +14,7 @@ import { ProjectMilestones } from "@/components/projects/ProjectMilestones";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { recordActivity } from "@/lib/activity";
 import { useEntityFollow, useRecentlyViewed } from "@/hooks/useWorkspaceFeatures";
+import { RelationshipPanel } from "@/components/relationships/RelationshipPanel";
 
 export function ProjectDetail() {
   const { id } = useParams();
@@ -42,7 +43,7 @@ export function ProjectDetail() {
     <ProjectStageControl status={project.status} canEdit={isAdmin} onChange={changeStage} />
     {error ? <p className="mt-4 rounded-md bg-[#fad9db] px-4 py-3 text-sm" role="alert">{error}</p> : null}
     <nav className="mt-6 flex gap-1 border-b border-border" aria-label="Project sections">{(["overview", "discussion", "todo"] as const).map((item) => <button key={item} type="button" onClick={() => setSearchParams(item === "overview" ? {} : { tab: item })} className={`border-b-2 px-4 py-3 text-sm font-semibold capitalize ${tab === item ? "border-foreground text-foreground" : "border-transparent text-muted"}`}>{item}</button>)}</nav>
-    {tab === "overview" ? <div className="mt-6 space-y-6">{editing ? <section className="rounded-xl border border-border bg-white p-6"><div className="grid gap-3"><input value={title} onChange={(event) => setTitle(event.target.value)} className="h-11 rounded-md border border-border px-3" /><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-md border border-border p-3" /><div className="flex gap-2"><Button onClick={() => void save()}>Save changes</Button><Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button></div></div></section> : <section className="rounded-xl border border-border bg-white p-6"><p className="whitespace-pre-wrap leading-7">{project.description || "No description provided."}</p></section>}<ProjectMilestones projectId={project.id} canEdit={isAdmin} /><ActivityTimeline entityType="project" entityId={project.id} /></div> : null}
+    {tab === "overview" ? <div className="mt-6 space-y-6">{editing ? <section className="rounded-xl border border-border bg-white p-6"><div className="grid gap-3"><input value={title} onChange={(event) => setTitle(event.target.value)} className="h-11 rounded-md border border-border px-3" /><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-md border border-border p-3" /><div className="flex gap-2"><Button onClick={() => void save()}>Save changes</Button><Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button></div></div></section> : <section className="rounded-xl border border-border bg-white p-6"><p className="whitespace-pre-wrap leading-7">{project.description || "No description provided."}</p></section>}<ProjectMilestones projectId={project.id} canEdit={isAdmin} /><RelationshipPanel entityType="project" entityId={project.id} /><ActivityTimeline entityType="project" entityId={project.id} /></div> : null}
     {tab === "discussion" ? <CommentsPanel entityType="project" entityId={project.id} /> : null}
     {tab === "todo" ? <ProjectTodoList projectId={project.id} canEdit={isAdmin} /> : null}
   </div>;
