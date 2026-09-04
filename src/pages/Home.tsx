@@ -6,6 +6,7 @@ import { IngredientPulse } from "@/components/ingredients/IngredientPulse";
 import { useAssets } from "@/hooks/useAssets";
 import { useIdeas } from "@/hooks/useIdeas";
 import { rankIdeas } from "@/lib/ranking";
+import { RecentlyViewed } from "@/components/workspace/RecentlyViewed";
 
 const areas = [
   { label: "Assets", href: "/assets", icon: Archive },
@@ -71,6 +72,7 @@ export function Home() {
           )}
         </div>
       </section>
+      <div className="mt-6"><RecentlyViewed /></div>
     </div>
   );
 }

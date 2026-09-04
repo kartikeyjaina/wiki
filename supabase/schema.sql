@@ -189,6 +189,7 @@ create table public.projects (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+create unique index projects_originating_idea_unique_idx on public.projects(originating_idea_id) where originating_idea_id is not null;
 
 alter table public.projects add constraint projects_priority_valid check (priority in ('low', 'medium', 'high', 'urgent'));
 
@@ -443,7 +444,9 @@ create policy "authors can update own comments" on public.comments for update to
 create policy "authors can delete own comments" on public.comments for delete to authenticated using (author_id = auth.uid());
 
 create policy "members can read projects" on public.projects for select to authenticated using (true);
-create policy "admins can manage projects" on public.projects for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "members can create owned projects" on public.projects for insert to authenticated with check (owner_id = auth.uid() or public.is_admin());
+create policy "owners and managers can update projects" on public.projects for update to authenticated using (owner_id = auth.uid() or public.is_admin() or exists (select 1 from public.project_members pm where pm.project_id = id and pm.user_id = auth.uid() and pm.role = 'manager')) with check (owner_id = auth.uid() or public.is_admin() or exists (select 1 from public.project_members pm where pm.project_id = id and pm.user_id = auth.uid() and pm.role = 'manager'));
+create policy "admins can delete projects" on public.projects for delete to authenticated using (public.is_admin());
 create policy "members can read project todos" on public.project_todos for select to authenticated using (true);
 create policy "admins can manage project todos" on public.project_todos for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read activity" on public.activity_events for select to authenticated using (true);
@@ -543,3 +546,5 @@ create policy "project collaborators read attachments" on public.project_attachm
 create policy "project collaborators manage attachments" on public.project_attachments for all to authenticated using (public.is_admin() or exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or exists (select 1 from public.project_members pm where pm.project_id = p.id and pm.user_id = auth.uid() and pm.role = 'manager')))) with check (uploaded_by = auth.uid() and (public.is_admin() or exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or exists (select 1 from public.project_members pm where pm.project_id = p.id and pm.user_id = auth.uid() and pm.role = 'manager'))));
 drop policy if exists "project managers upload attachments" on storage.objects;
 create policy "project managers upload attachments" on storage.objects for insert to authenticated with check (bucket_id = 'brand-assets' and exists (select 1 from public.projects p where name like 'projects/' || p.id::text || '/%' and (public.is_admin() or p.owner_id = auth.uid() or exists (select 1 from public.project_members pm where pm.project_id = p.id and pm.user_id = auth.uid() and pm.role = 'manager'))));
+drop policy if exists "project managers delete attachments" on storage.objects;
+create policy "project managers delete attachments" on storage.objects for delete to authenticated using (bucket_id = 'brand-assets' and exists (select 1 from public.project_attachments a join public.projects p on p.id = a.project_id where a.storage_path = name and (public.is_admin() or p.owner_id = auth.uid() or exists (select 1 from public.project_members pm where pm.project_id = p.id and pm.user_id = auth.uid() and pm.role = 'manager'))));

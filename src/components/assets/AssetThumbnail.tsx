@@ -1,21 +1,28 @@
 import { Archive, Code2, File, FileArchive, FileCode2, FileJson, FileSpreadsheet, FileText, Presentation } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Asset } from "@/types/domain";
 import { getAssetThumbnailType, getFilePreviewType, getFileTypeLabel } from "@/lib/file-preview";
+import { getAssetPreviewUrl } from "@/lib/storage";
 
 export function AssetThumbnail({ asset }: { asset: Asset }) {
   const isImage = getAssetThumbnailType(asset) === "image";
   return (
     <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-lg bg-surface">
-      {isImage && asset.preview_url ? <ImageThumbnail asset={asset} /> : <FileThumbnail asset={asset} />}
+      {isImage && asset.storage_path ? <ImageThumbnail asset={asset} /> : <FileThumbnail asset={asset} />}
     </div>
   );
 }
 
 function ImageThumbnail({ asset }: { asset: Asset }) {
   const [failed, setFailed] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setFailed(false); setUrl(null);
+    if (asset.storage_path) void getAssetPreviewUrl(asset.storage_path).then(setUrl).catch(() => setFailed(true));
+    else setFailed(true);
+  }, [asset.preview_url, asset.storage_path]);
   if (failed) return <FileThumbnail asset={asset} />;
-  return <img src={asset.preview_url!} alt="" loading="lazy" className="h-full w-full object-contain" onError={() => setFailed(true)} />;
+  return url ? <img src={url} alt={asset.name} loading="lazy" className="h-full w-full object-contain" onError={() => setFailed(true)} /> : <FileThumbnail asset={asset} />;
 }
 
 function FileThumbnail({ asset }: { asset: Asset }) {

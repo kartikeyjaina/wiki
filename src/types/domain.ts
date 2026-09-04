@@ -102,6 +102,7 @@ export interface AssetVersion {
   notes: string | null;
   created_by: string | null;
   created_at: string;
+  creator?: Profile | null;
 }
 
 export interface Comment {

@@ -58,7 +58,13 @@ export function IdeaDetail() {
     if (existing) { navigate(`/projects/${existing.id}`); return; }
     setUpdating(true);
     const result = await supabase.from("projects").insert({ title: currentIdea.title, description: currentIdea.description, status: "planned", originating_idea_id: currentIdea.id, owner_id: session?.user.id ?? null }).select("id").single();
-    if (result.error) { setUpdateError(result.error.message); setUpdating(false); return; }
+    if (result.error) {
+      if (result.error.code === "23505") {
+        const existingResult = await supabase.from("projects").select("id").eq("originating_idea_id", currentIdea.id).maybeSingle();
+        if (existingResult.data?.id) { navigate(`/projects/${existingResult.data.id}`); return; }
+      }
+      setUpdateError("The project could not be created. Please try again."); setUpdating(false); return;
+    }
     await supabase.from("ideas").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", currentIdea.id);
     await recordActivity("idea", currentIdea.id, "project_created", { project_id: result.data.id });
     navigate(`/projects/${result.data.id}`);
