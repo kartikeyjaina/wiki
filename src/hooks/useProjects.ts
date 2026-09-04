@@ -11,17 +11,17 @@ export function useProjects() {
   const load = useCallback(async () => {
     if (!supabase) {
       setLoading(false);
-      return;
+      return false;
     }
     setLoading(true);
     const { data, error: loadError } = await supabase.from("projects").select("*").order("updated_at", { ascending: false });
-    setProjects((data ?? []) as Project[]);
+    if (!loadError) setProjects((data ?? []) as Project[]);
     setError(loadError?.message ?? null);
     setLoading(false);
-    if (loadError) throw loadError;
+    return !loadError;
   }, []);
 
-  useEffect(() => { void load().catch(() => undefined); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function create(input: { title: string; description: string; status: ProjectStatus; originating_idea_id: string | null; owner_id?: string | null; due_date?: string | null; priority?: string }) {
     if (!supabase) throw new Error("Supabase is not configured.");
