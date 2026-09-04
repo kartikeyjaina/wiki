@@ -19,6 +19,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Regenerate lockfile from package manifest
+        run: npm install --package-lock-only --ignore-scripts
+
       - name: Install dependencies
         run: npm ci
 
@@ -43,6 +46,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Regenerate lockfile from package manifest
+        run: npm install --package-lock-only --ignore-scripts
 
       - name: Install dependencies
         run: npm ci
