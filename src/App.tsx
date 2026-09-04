@@ -17,6 +17,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { CollectionDetail } from "@/pages/CollectionDetail";
 import { SavedAssets } from "@/pages/SavedAssets";
 import { Profile } from "@/pages/Profile";
+import { People } from "@/pages/People";
 
 export default function App() {
   const { session, loading, configured } = useSession();
@@ -46,8 +47,8 @@ export default function App() {
         <Route path="ideas/:id" element={<IdeaDetail />} />
         <Route path="projects" element={<Projects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
-        <Route path="people" element={<Navigate to="/" replace />} />
-        <Route path="people/:id" element={<Navigate to="/" replace />} />
+        <Route path="people" element={<People />} />
+        <Route path="people/:id" element={<People />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="admin/*" element={isAdmin || !configured ? <Admin /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,8 +11,6 @@ export type IdeaStatus =
   | "declined"
   | "duplicate";
 
-export type AssetStatus = "approved" | "current" | "draft" | "deprecated" | "template";
-
 export type EntityType = "wiki_page" | "asset" | "idea" | "comment" | "project" | "person";
 
 export type ProjectStatus = "planned" | "in_progress" | "blocked" | "shipped" | "archived";
@@ -51,7 +49,6 @@ export interface Asset {
   name: string;
   category: string | null;
   asset_type: string;
-  status: AssetStatus;
   preview_url: string | null;
   storage_path: string | null;
   metadata: Record<string, unknown> | null;

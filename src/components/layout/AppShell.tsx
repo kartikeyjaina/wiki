@@ -37,7 +37,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-white text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-20 w-[min(1180px,100vw-2rem)] items-center gap-4">
+        <div className="mx-auto flex h-20 w-[min(1180px,100vw-3rem)] items-center gap-4">
           <button
             type="button"
             className="font-display text-xl font-bold tracking-[-0.03em]"
@@ -48,13 +48,13 @@ export function AppShell() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="ml-auto hidden h-11 min-w-[320px] items-center gap-3 rounded-pill border border-border bg-surface px-4 text-left text-sm text-muted transition hover:border-[#1111112e] md:flex"
+            className="ml-auto hidden h-11 min-w-[280px] items-center gap-3 rounded-pill border border-border bg-surface px-4 text-left text-sm text-muted transition hover:border-[#1111112e] lg:flex"
           >
             <Search className="h-4 w-4" />
             Search everything...
             <kbd className="ml-auto rounded-md border border-border bg-white px-2 py-0.5 text-[11px] text-muted">Ctrl K</kbd>
           </button>
-          <Button variant="secondary" size="icon" className="md:hidden" onClick={() => setMobileOpen((open) => !open)}>
+          <Button variant="secondary" size="icon" className="md:hidden" onClick={() => setMobileOpen((open) => !open)} aria-expanded={mobileOpen} aria-controls="mobile-navigation" aria-label={mobileOpen ? "Close navigation" : "Open navigation"}>
             <Menu className="h-4 w-4" />
             <span className="sr-only">Open navigation</span>
           </Button>
@@ -64,7 +64,7 @@ export function AppShell() {
           </Button>
         </div>
         {mobileOpen ? (
-          <nav className="mx-auto grid w-[min(1180px,100vw-2rem)] grid-cols-2 gap-2 pb-4 md:hidden" aria-label="Mobile">
+            <nav id="mobile-navigation" className="mx-auto grid w-[min(1180px,100vw-3rem)] grid-cols-2 gap-2 pb-4 md:hidden" aria-label="Mobile">
             {visibleNavItems.map((item) => (
               <NavLink
                 key={item.href}

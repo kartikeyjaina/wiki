@@ -19,6 +19,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [recent, setRecent] = useState<string[]>(() => JSON.parse(localStorage.getItem("futurelab-searches") ?? "[]") as string[]);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -44,6 +45,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
           type_filter: filter === "all" ? null : filter,
         });
         setResults((data ?? []) as SearchResult[]);
+        setActiveIndex(0);
         setLoading(false);
       })();
     }, 180);
@@ -78,7 +80,10 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Escape") onOpenChange(false);
-              if (event.key === "Enter") rememberSearch(query);
+              if (event.key === "ArrowDown") { event.preventDefault(); setActiveIndex((index) => Math.min(index + 1, results.length - 1)); }
+              if (event.key === "ArrowUp") { event.preventDefault(); setActiveIndex((index) => Math.max(index - 1, 0)); }
+              if (event.key === "Enter" && results[activeIndex]) { event.preventDefault(); rememberSearch(query); window.location.assign(results[activeIndex].href); onOpenChange(false); }
+              else if (event.key === "Enter") rememberSearch(query);
             }}
             placeholder="Search everything..."
             className="h-11 flex-1 border-0 bg-transparent text-lg outline-none placeholder:text-muted"
@@ -88,7 +93,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
             <span className="sr-only">Close search</span>
           </Button>
         </div>
-        <div className="flex gap-2 overflow-x-auto border-b border-border px-5 py-3">
+        <div className="flex flex-wrap gap-2 border-b border-border px-5 py-3">
           {filters.map((item) => (
             <button
               key={item}
@@ -126,7 +131,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                           rememberSearch(query);
                           onOpenChange(false);
                         }}
-                        className="block rounded-lg border border-border px-4 py-3 transition hover:border-[#1111112e] hover:bg-surface"
+                        className={`block rounded-lg border border-border px-4 py-3 transition hover:border-[#1111112e] hover:bg-surface ${results.indexOf(item) === activeIndex ? "border-[#1111112e] bg-surface" : ""}`}
                       >
                         <span className="font-display text-base font-bold tracking-[-0.03em]">{item.title}</span>
                         {item.excerpt ? <span className="mt-1 block text-sm text-muted">{item.excerpt}</span> : null}

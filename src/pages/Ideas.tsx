@@ -35,7 +35,7 @@ export function Ideas() {
         description="Submit ideas, discuss them, vote carefully, and let the leaderboard reveal what matters."
         action={<Button asChild><Link to="/ideas/new"><Plus className="h-4 w-4" />Submit Idea</Link></Button>}
       />
-      <div className="mb-6 flex gap-2 overflow-x-auto">
+      <div className="mb-6 flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <button key={tab.mode} type="button" onClick={() => setMode(tab.mode)} className={`rounded-pill px-4 py-2 text-sm font-semibold ${mode === tab.mode ? "bg-foreground text-white" : "bg-surface text-muted"}`}>
             {tab.label}

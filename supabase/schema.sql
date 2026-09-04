@@ -2,7 +2,6 @@ create extension if not exists pgcrypto;
 
 create type public.app_role as enum ('member', 'admin');
 create type public.idea_status as enum ('new', 'discussing', 'under_review', 'planned', 'in_progress', 'shipped', 'parked', 'declined', 'duplicate');
-create type public.asset_status as enum ('approved', 'current', 'draft', 'deprecated', 'template');
 create type public.entity_type as enum ('wiki_page', 'asset', 'idea', 'comment', 'project', 'person');
 
 create table public.profiles (
@@ -80,7 +79,6 @@ create table public.assets (
   name text not null,
   category text,
   asset_type text not null,
-  status asset_status not null default 'draft',
   preview_url text,
   storage_path text,
   metadata jsonb,
@@ -236,7 +234,6 @@ create index idea_votes_idea_id_idx on public.idea_votes(idea_id);
 create index comments_entity_idx on public.comments(entity_type, entity_id);
 create index activity_entity_idx on public.activity_events(entity_type, entity_id, created_at desc);
 create index assets_category_idx on public.assets(category);
-create index assets_status_idx on public.assets(status);
 create index asset_collections_order_idx on public.asset_collections(display_order);
 create index featured_kits_order_idx on public.featured_kits(display_order);
 

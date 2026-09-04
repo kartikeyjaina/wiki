@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAssets } from "@/hooks/useAssets";
-import { formatStatus, shortDate } from "@/lib/utils";
+import { shortDate } from "@/lib/utils";
 import { downloadAsset } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { useEntityFollow, useRecentlyViewed, useSavedAsset } from "@/hooks/useWorkspaceFeatures";
@@ -49,7 +49,6 @@ export function AssetDetail() {
           {asset.preview_url ? <img src={asset.preview_url} alt="" className="max-h-[70vh] max-w-full object-contain" /> : <p className="text-sm text-muted">No preview available.</p>}
         </div>
         <aside className="space-y-4 rounded-xl border border-border bg-white p-5">
-          <Badge>{formatStatus(asset.status)}</Badge>
           <dl className="space-y-4 text-sm">
             <Meta label="Type" value={asset.asset_type} />
             <Meta label="Collection" value={collectionName} />
