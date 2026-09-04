@@ -14,12 +14,10 @@ export function Assets() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
-    void Promise.all([supabase.from("asset_collections").select("*").order("display_order"), supabase.from("featured_kits").select("*").order("display_order"), supabase.from("assets").select("collection_id")]).then(([collectionsResult, kitsResult, assetsResult]) => {
-      const queryError = collectionsResult.error ?? kitsResult.error ?? assetsResult.error;
+    void Promise.all([supabase.from("asset_collection_counts").select("*"), supabase.from("featured_kits").select("*").order("display_order")]).then(([collectionsResult, kitsResult]) => {
+      const queryError = collectionsResult.error ?? kitsResult.error;
       if (queryError) { setError(queryError.message); setLoading(false); return; }
-      const counts = new Map<string, number>();
-      (assetsResult.data ?? []).forEach((asset) => asset.collection_id && counts.set(asset.collection_id, (counts.get(asset.collection_id) ?? 0) + 1));
-      setCollections((collectionsResult.data ?? []).map((collection) => ({ ...collection, file_count: counts.get(collection.id) ?? 0 })) as AssetCollection[]);
+      setCollections((collectionsResult.data ?? []) as AssetCollection[]);
       setKits((kitsResult.data ?? []) as FeaturedKit[]);
       setLoading(false);
     });

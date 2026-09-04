@@ -12,6 +12,8 @@ create table public.profiles (
   avatar_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+  ,constraint asset_collection_name_nonempty check (char_length(trim(name)) > 0)
+  ,constraint asset_collection_display_order_valid check (display_order > 0)
 );
 
 create or replace function public.handle_new_user()
@@ -49,6 +51,9 @@ create table public.wiki_pages (
   tags text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+  ,constraint featured_kit_name_nonempty check (char_length(trim(name)) > 0)
+  ,constraint featured_kit_display_order_valid check (display_order > 0)
+  ,constraint featured_kit_package_size_valid check (package_size is null or package_size >= 0)
 );
 
 create table public.wiki_page_revisions (
@@ -234,6 +239,15 @@ create index assets_category_idx on public.assets(category);
 create index assets_status_idx on public.assets(status);
 create index asset_collections_order_idx on public.asset_collections(display_order);
 create index featured_kits_order_idx on public.featured_kits(display_order);
+
+create or replace view public.asset_collection_counts
+with (security_invoker = true)
+as
+select c.id, c.name, c.slug, c.description, c.display_order, c.accent, c.is_visible, c.archived_at, c.created_at, c.updated_at,
+       count(a.id)::integer as file_count
+from public.asset_collections c
+left join public.assets a on a.collection_id = c.id
+group by c.id;
 create index project_todos_project_id_idx on public.project_todos(project_id);
 
 create or replace view public.idea_feed as
@@ -357,9 +371,16 @@ values ('brand-assets', 'brand-assets', false)
 on conflict (id) do nothing;
 
 drop policy if exists "members can read brand assets" on storage.objects;
-create policy "members can read brand assets" on storage.objects
+create policy "members can read published brand assets" on storage.objects
 for select to authenticated
-using (bucket_id = 'brand-assets');
+using (
+  bucket_id = 'brand-assets' and (
+    public.is_admin()
+    or exists (select 1 from public.assets a join public.asset_collections c on c.id = a.collection_id where a.storage_path = name and c.is_visible = true and c.archived_at is null)
+    or exists (select 1 from public.assets a where a.storage_path = name and a.collection_id is null)
+    or exists (select 1 from public.featured_kits k where k.package_storage_path = name and k.is_visible = true and k.is_featured = true and k.archived_at is null)
+  )
+);
 
 drop policy if exists "admins can upload brand assets" on storage.objects;
 create policy "admins can upload brand assets" on storage.objects
