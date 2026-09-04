@@ -9,7 +9,6 @@ import { Ideas } from "@/pages/Ideas";
 import { IdeaDetail } from "@/pages/IdeaDetail";
 import { IdeaLeaderboard } from "@/pages/IdeaLeaderboard";
 import { NewIdea } from "@/pages/NewIdea";
-import { SearchPage } from "@/pages/Search";
 import { Projects } from "@/pages/Projects";
 import { ProjectDetail } from "@/pages/ProjectDetail";
 import { Admin } from "@/pages/Admin";
@@ -52,7 +51,6 @@ export default function App() {
         <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="people" element={<People />} />
         <Route path="people/:id" element={<People />} />
-        <Route path="search" element={<SearchPage />} />
         <Route path="admin/*" element={isAdmin || !configured ? <Admin /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
