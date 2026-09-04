@@ -1,60 +1,45 @@
 import { describe, expect, it } from "vitest";
 
-// ─── Mention extraction helper (mirrors logic in useComments) ────────────────
+// ─── Mention extraction helper ──────────────────────────────────────────────
 
 /**
- * Extract @mentioned names from a comment body and map them to user IDs
- * using a provided name→id dictionary.
+ * Extract known @mentioned display names from a comment body.
+ * Matching against the known names avoids treating ordinary words after @ as
+ * part of a mention, while still supporting multi-word display names.
  */
-function extractMentionIds(
-  body: string,
-  nameToId: Record<string, string>,
-): string[] {
-  const matches = body.match(/@([\w ]+)/g) ?? [];
+function extractMentionIds(body: string, nameToId: Record<string, string>): string[] {
   const ids: string[] = [];
-  for (const match of matches) {
-    const name = match.slice(1).trim();
-    if (nameToId[name]) ids.push(nameToId[name]);
+  const names = Object.keys(nameToId).sort((a, b) => b.length - a.length);
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`(^|\\s)@${escaped}(?=\\s|$|[.,!?])`, "gi");
+    if (pattern.test(body)) ids.push(nameToId[name]);
   }
-  return [...new Set(ids)];
+  return ids;
 }
 
-/**
- * Given the old and new body of an edited comment plus the full name→id map,
- * return the set of user IDs that should be stored in comment_mentions after
- * the edit.
- */
 function resolveEditedMentions(
   _oldBody: string,
   newBody: string,
   nameToId: Record<string, string>,
 ): string[] {
-  // After an edit the current mention set is derived entirely from the new body.
-  // Old mention rows are deleted and replaced with the new set.
   return extractMentionIds(newBody, nameToId);
 }
-
-// ─── Self-notification prevention ───────────────────────────────────────────
 
 function shouldNotifyMention(mentionedUserId: string, actorUserId: string): boolean {
   return mentionedUserId !== actorUserId;
 }
 
-function shouldNotifyReply(
-  parentCommentAuthorId: string | null,
-  actorUserId: string,
-): boolean {
+function shouldNotifyReply(parentCommentAuthorId: string | null, actorUserId: string): boolean {
   if (!parentCommentAuthorId) return false;
   return parentCommentAuthorId !== actorUserId;
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
-
 describe("mention extraction", () => {
   const nameToId: Record<string, string> = {
-    "Alice": "user-alice",
+    Alice: "user-alice",
     "Bob Smith": "user-bob",
-    "Charlie": "user-charlie",
+    Charlie: "user-charlie",
   };
 
   it("extracts a single mention", () => {
@@ -69,50 +54,38 @@ describe("mention extraction", () => {
   });
 
   it("deduplicates repeated mentions of the same person", () => {
-    expect(
-      extractMentionIds("@Alice can you check? @Alice see above", nameToId),
-    ).toHaveLength(1);
+    expect(extractMentionIds("@Alice can you check? @Alice see above", nameToId)).toEqual(["user-alice"]);
   });
 
   it("ignores unknown handles", () => {
     expect(extractMentionIds("@Unknown please help", nameToId)).toEqual([]);
   });
 
-  it("returns empty array when no mentions present", () => {
+  it("does not consume words following a known mention", () => {
+    expect(extractMentionIds("@Alice please review", nameToId)).toEqual(["user-alice"]);
+  });
+
+  it("returns empty array when no mentions are present", () => {
     expect(extractMentionIds("No mentions here", nameToId)).toEqual([]);
   });
 });
 
 describe("edited mention synchronization", () => {
   const nameToId: Record<string, string> = {
-    "Alice": "user-alice",
-    "Bob": "user-bob",
+    Alice: "user-alice",
+    Bob: "user-bob",
   };
 
   it("replaces removed mentions with new ones after edit", () => {
-    const result = resolveEditedMentions(
-      "@Alice please review",
-      "@Bob please review",
-      nameToId,
-    );
-    expect(result).toEqual(["user-bob"]);
-    expect(result).not.toContain("user-alice");
+    expect(resolveEditedMentions("@Alice please review", "@Bob please review", nameToId)).toEqual(["user-bob"]);
   });
 
   it("reflects cleared mentions when body has none", () => {
-    expect(
-      resolveEditedMentions("@Alice look here", "Updated without mentions", nameToId),
-    ).toEqual([]);
+    expect(resolveEditedMentions("@Alice look here", "Updated without mentions", nameToId)).toEqual([]);
   });
 
   it("adds new mentions on top of existing", () => {
-    const result = resolveEditedMentions(
-      "@Alice check this",
-      "@Alice and @Bob check this",
-      nameToId,
-    );
-    expect(result).toContain("user-alice");
-    expect(result).toContain("user-bob");
+    expect(resolveEditedMentions("@Alice check this", "@Alice and @Bob check this", nameToId)).toEqual(["user-alice", "user-bob"]);
   });
 });
 
