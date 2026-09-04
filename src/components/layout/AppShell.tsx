@@ -37,7 +37,14 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-white text-foreground">
-      <a href="#main-content" className="sr-only fixed left-4 top-4 z-[200] rounded-pill bg-foreground px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-foreground focus:ring-offset-2">
+      <a
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById("main-content")?.focus();
+        }}
+        className="sr-only fixed left-4 top-4 z-[200] rounded-pill bg-foreground px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-foreground focus:ring-offset-2"
+      >
         Skip to main content
       </a>
       <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur">
