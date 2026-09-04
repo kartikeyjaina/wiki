@@ -21,14 +21,14 @@ export function useProjects() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function create(input: { title: string; description: string; status: ProjectStatus; originating_idea_id: string | null }) {
+  async function create(input: { title: string; description: string; status: ProjectStatus; originating_idea_id: string | null; owner_id?: string | null; due_date?: string | null; priority?: string }) {
     if (!supabase) throw new Error("Supabase is not configured.");
     const { error: createError } = await supabase.from("projects").insert(input);
     if (createError) throw createError;
     await load();
   }
 
-  async function update(id: string, input: Partial<Pick<Project, "title" | "description" | "status" | "originating_idea_id">>) {
+  async function update(id: string, input: Partial<Pick<Project, "title" | "description" | "status" | "originating_idea_id" | "owner_id" | "due_date" | "priority">>) {
     if (!supabase) throw new Error("Supabase is not configured.");
     const { error: updateError } = await supabase.from("projects").update({ ...input, updated_at: new Date().toISOString() }).eq("id", id);
     if (updateError) throw updateError;

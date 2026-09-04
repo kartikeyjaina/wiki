@@ -6,7 +6,7 @@ import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { isDevelopmentGuest } from "@/lib/devGuest";
-import { supabase } from "@/lib/supabase";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const navItems = [
   { label: "Home", href: "/", icon: Home },
@@ -58,7 +58,8 @@ export function AppShell() {
             <Menu className="h-4 w-4" />
             <span className="sr-only">Open navigation</span>
           </Button>
-          <Button variant="secondary" className="hidden md:inline-flex" onClick={() => void supabase?.auth.signOut()}>
+          <NotificationBell />
+          <Button variant="secondary" className="hidden md:inline-flex" onClick={() => navigate("/profile")}>
             {isGuest ? "Development Guest" : profile?.display_name ?? "Profile"}
           </Button>
         </div>

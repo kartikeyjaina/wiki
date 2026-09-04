@@ -13,6 +13,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { ideaStatusLabels, getIdeaTransitions } from "@/lib/idea-workflow";
 import { recordActivity } from "@/lib/activity";
 import { supabase } from "@/lib/supabase";
+import { useEntityFollow, useRecentlyViewed } from "@/hooks/useWorkspaceFeatures";
 
 export function IdeaDetail() {
   const { id } = useParams();
@@ -23,6 +24,8 @@ export function IdeaDetail() {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const idea = ideas.find((item) => item.id === id);
+  const { following, toggle: toggleFollowing } = useEntityFollow("idea", idea?.id);
+  useRecentlyViewed("idea", idea?.id);
 
   if (loading) return <p className="text-sm text-muted">Loading idea...</p>;
   if (!idea) return <EmptyState title="Idea not found." description="Only real submitted ideas appear here." />;
@@ -54,6 +57,7 @@ export function IdeaDetail() {
         <VoteControl ideaId={idea.id} score={idea.score ?? 0} currentVote={idea.user_vote ?? 0} onReconcile={reload} />
         <div>
           <PageHeader eyebrow={idea.category?.name ?? "Idea"} title={idea.title} />
+          <div className="mb-5"><Button size="sm" variant="secondary" onClick={() => void toggleFollowing()}>{following ? "Watching" : "Watch idea"}</Button></div>
           <div className="mb-5 flex flex-wrap items-center gap-2"><Badge>{ideaStatusLabels[idea.status]}</Badge>{idea.author?.display_name ? <Badge>{idea.author.display_name}</Badge> : null}</div>
           {canDecide && transitions.length ? <div className="mb-8 flex flex-wrap gap-2">{transitions.map((transition) => <Button key={transition.status} size="sm" variant={transition.status === "declined" ? "secondary" : "primary"} disabled={updating} onClick={() => void changeStatus(transition.status)}>{transition.label}</Button>)}</div> : null}
           {updateError ? <p className="mb-5 rounded-md bg-[#fad9db] px-4 py-3 text-sm font-medium" role="alert">{updateError}</p> : null}

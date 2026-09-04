@@ -15,7 +15,8 @@ export type AssetStatus = "approved" | "current" | "draft" | "deprecated" | "tem
 
 export type EntityType = "wiki_page" | "asset" | "idea" | "comment" | "project" | "person";
 
-export type ProjectStatus = "planned" | "in_progress" | "blocked" | "shipped" | "parked" | "archived";
+export type ProjectStatus = "planned" | "in_progress" | "blocked" | "shipped" | "archived";
+export type ProjectPriority = "low" | "medium" | "high" | "urgent";
 
 export interface Profile {
   id: string;
@@ -156,6 +157,22 @@ export interface Project {
   description: string | null;
   status: ProjectStatus;
   originating_idea_id: string | null;
+  created_at: string;
+  updated_at: string;
+  owner_id?: string | null;
+  due_date?: string | null;
+  priority?: ProjectPriority;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  display_order: number;
+  status: "pending" | "in_progress" | "completed";
+  due_date: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

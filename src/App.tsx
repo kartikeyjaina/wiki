@@ -15,6 +15,8 @@ import { ProjectDetail } from "@/pages/ProjectDetail";
 import { Admin } from "@/pages/Admin";
 import { useProfile } from "@/hooks/useProfile";
 import { CollectionDetail } from "@/pages/CollectionDetail";
+import { SavedAssets } from "@/pages/SavedAssets";
+import { Profile } from "@/pages/Profile";
 
 export default function App() {
   const { session, loading, configured } = useSession();
@@ -35,6 +37,8 @@ export default function App() {
         <Route path="brand" element={<Navigate to="/assets" replace />} />
         <Route path="assets" element={<Assets />} />
         <Route path="assets/:id" element={<AssetDetail />} />
+        <Route path="saved" element={<SavedAssets />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="collections/:slug" element={<CollectionDetail />} />
         <Route path="ideas" element={<Ideas />} />
         <Route path="ideas/new" element={<NewIdea />} />

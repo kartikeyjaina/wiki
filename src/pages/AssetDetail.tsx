@@ -8,11 +8,15 @@ import { useAssets } from "@/hooks/useAssets";
 import { formatStatus, shortDate } from "@/lib/utils";
 import { downloadAsset } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
+import { useEntityFollow, useRecentlyViewed, useSavedAsset } from "@/hooks/useWorkspaceFeatures";
 
 export function AssetDetail() {
   const { id } = useParams();
   const { assets, loading } = useAssets();
   const asset = assets.find((item) => item.id === id);
+  const { following, toggle: toggleFollowing } = useEntityFollow("asset", asset?.id);
+  const { saved, toggle: toggleSaved } = useSavedAsset(asset?.id);
+  useRecentlyViewed("asset", asset?.id);
   const [collectionName, setCollectionName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,6 +43,7 @@ export function AssetDetail() {
     ) : null
   }
 />
+      <div className="mb-6 flex gap-2"><Button size="sm" variant="secondary" onClick={() => void toggleSaved()}>{saved ? "Saved" : "Save"}</Button><Button size="sm" variant="secondary" onClick={() => void toggleFollowing()}>{following ? "Watching" : "Watch"}</Button></div>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid min-h-[420px] place-items-center rounded-xl border border-border bg-surface p-8">
           {asset.preview_url ? <img src={asset.preview_url} alt="" className="max-h-[70vh] max-w-full object-contain" /> : <p className="text-sm text-muted">No preview available.</p>}
