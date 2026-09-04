@@ -27,161 +27,89 @@ export function AdminLibrary() {
   const [busy, setBusy] = useState(false);
 
   async function load() {
-    if (!supabase) return;
-    const [kitResult, collectionResult] = await Promise.all([
-      supabase.from("featured_kits").select("*").order("display_order"),
-      supabase.from("asset_collections").select("*").order("display_order"),
-    ]);
-    if (kitResult.error || collectionResult.error) {
-      setMessage((kitResult.error ?? collectionResult.error)?.message ?? "Library data could not be loaded.");
-      return;
-    }
-    setKits((kitResult.data ?? []) as FeaturedKit[]);
-    setCollections((collectionResult.data ?? []) as AssetCollection[]);
+    const client = supabase;
+    if (!client) return;
+    const [kitResult, collectionResult] = await Promise.all([client.from("featured_kits").select("*").order("display_order"), client.from("asset_collections").select("*").order("display_order")]);
+    if (kitResult.error || collectionResult.error) { setMessage((kitResult.error ?? collectionResult.error)?.message ?? "Library data could not be loaded."); return; }
+    setKits((kitResult.data ?? []) as FeaturedKit[]); setCollections((collectionResult.data ?? []) as AssetCollection[]);
   }
-
   useEffect(() => { void load(); }, []);
 
   function startKit(item?: FeaturedKit) {
     setEditingKit(item ?? null);
-    setKitDraft(item ? {
-      name: item.name,
-      description: item.description,
-      display_order: item.display_order,
-      accent: item.accent,
-      is_visible: item.is_visible,
-      is_featured: item.is_featured,
-    } : {
-      name: "",
-      description: "",
-      display_order: kits.length + 1,
-      accent: "sage",
-      is_visible: true,
-      is_featured: true,
-    });
-    if (item && supabase) {
-      void supabase.from("featured_kit_collections").select("collection_id").eq("kit_id", item.id)
-        .then(({ data }) => setKitCollections((data ?? []).map((row) => row.collection_id as string)));
-    } else {
-      setKitCollections([]);
-    }
+    setKitDraft(item ? { name: item.name, description: item.description, display_order: item.display_order, accent: item.accent, is_visible: item.is_visible, is_featured: item.is_featured } : { name: "", description: "", display_order: kits.length + 1, accent: "sage", is_visible: true, is_featured: true });
+    if (item && supabase) void supabase.from("featured_kit_collections").select("collection_id").eq("kit_id", item.id).then(({ data, error }) => { if (error) setMessage("Kit collections could not be loaded."); else setKitCollections((data ?? []).map((row) => row.collection_id as string)); });
+    else setKitCollections([]);
   }
 
   function startCollection(item?: AssetCollection) {
-    setEditingCollection(item ?? null);
-    setCollectionDraft(item ? {
-      name: item.name,
-      description: item.description,
-      display_order: item.display_order,
-      accent: item.accent,
-      is_visible: item.is_visible,
-    } : {
-      name: "",
-      description: "",
-      display_order: collections.length + 1,
-      accent: "sage",
-      is_visible: true,
-    });
+    setEditingCollection(item ?? null); setCollectionDraft(item ? { name: item.name, description: item.description, display_order: item.display_order, accent: item.accent, is_visible: item.is_visible } : { name: "", description: "", display_order: collections.length + 1, accent: "sage", is_visible: true });
   }
 
   async function saveKit(event: FormEvent) {
     event.preventDefault();
-    if (!supabase || !kitDraft.name.trim()) return;
-    setBusy(true);
-    setMessage(null);
-
+    const client = supabase;
+    if (!client || !kitDraft.name.trim() || busy) return;
+    setBusy(true); setMessage(null);
     try {
-      const payload = {
-        ...kitDraft,
-        name: kitDraft.name.trim(),
-        description: kitDraft.description?.trim() ?? "",
-        ...(editingKit ? {} : { slug: slugify(kitDraft.name) }),
-      };
-      const result = editingKit
-        ? await supabase.from("featured_kits").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingKit.id)
-        : await supabase.from("featured_kits").insert(payload).select("id").single();
+      const payload = { ...kitDraft, name: kitDraft.name.trim(), description: kitDraft.description?.trim() ?? "", ...(editingKit ? {} : { slug: slugify(kitDraft.name) }) };
+      const result = editingKit ? await client.from("featured_kits").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingKit.id) : await client.from("featured_kits").insert(payload).select("id").single();
       if (result.error) throw result.error;
-
       const kitId = editingKit?.id ?? (result.data as { id: string }).id;
+      let previousCollections: string[] = [];
       if (editingKit) {
-        const clearResult = await supabase.from("featured_kit_collections").delete().eq("kit_id", kitId);
+        const previous = await client.from("featured_kit_collections").select("collection_id").eq("kit_id", kitId);
+        if (previous.error) throw previous.error;
+        previousCollections = (previous.data ?? []).map((row) => row.collection_id as string);
+        const clearResult = await client.from("featured_kit_collections").delete().eq("kit_id", kitId);
         if (clearResult.error) throw clearResult.error;
       }
       if (kitCollections.length) {
-        const relationshipResult = await supabase.from("featured_kit_collections").insert(
-          kitCollections.map((collection_id) => ({ kit_id: kitId, collection_id })),
-        );
+        const relationshipResult = await client.from("featured_kit_collections").insert(kitCollections.map((collection_id) => ({ kit_id: kitId, collection_id })));
         if (relationshipResult.error) {
-          if (!editingKit) await supabase.from("featured_kits").delete().eq("id", kitId);
+          if (editingKit) {
+            const restoreResult = previousCollections.length ? await client.from("featured_kit_collections").insert(previousCollections.map((collection_id) => ({ kit_id: kitId, collection_id }))) : { error: null };
+            if (restoreResult.error) setMessage("Kit saved, but its previous collection links could not be restored.");
+          } else {
+            await client.from("featured_kits").delete().eq("id", kitId);
+          }
           throw relationshipResult.error;
         }
       }
-
-      setMessage(editingKit ? "Kit updated." : "Kit created.");
-      setEditingKit(null);
-      setKitCollections([]);
-      void load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Kit could not be saved.");
-    } finally {
-      setBusy(false);
-    }
+      setMessage(editingKit ? "Kit updated." : "Kit created."); setEditingKit(null); setKitCollections([]); void load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Kit could not be saved."); }
+    finally { setBusy(false); }
   }
 
   async function saveCollection(event: FormEvent) {
-    event.preventDefault();
-    if (!supabase || !collectionDraft.name.trim()) return;
-    setBusy(true);
-    setMessage(null);
-    const payload = {
-      ...collectionDraft,
-      name: collectionDraft.name.trim(),
-      description: collectionDraft.description?.trim() ?? "",
-      ...(editingCollection ? {} : { slug: slugify(collectionDraft.name) }),
-    };
-    const result = editingCollection
-      ? await supabase.from("asset_collections").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingCollection.id)
-      : await supabase.from("asset_collections").insert(payload);
-    setBusy(false);
-    if (result.error) setMessage(result.error.message);
-    else { setMessage(editingCollection ? "Collection updated." : "Collection created."); setEditingCollection(null); void load(); }
+    event.preventDefault(); const client = supabase; if (!client || !collectionDraft.name.trim() || busy) return;
+    setBusy(true); setMessage(null);
+    try {
+      const payload = { ...collectionDraft, name: collectionDraft.name.trim(), description: collectionDraft.description?.trim() ?? "", ...(editingCollection ? {} : { slug: slugify(collectionDraft.name) }) };
+      const result = editingCollection ? await client.from("asset_collections").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingCollection.id) : await client.from("asset_collections").insert(payload);
+      if (result.error) throw result.error;
+      setMessage(editingCollection ? "Collection updated." : "Collection created."); setEditingCollection(null); void load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Collection could not be saved."); }
+    finally { setBusy(false); }
   }
 
   async function uploadPackage(event: ChangeEvent<HTMLInputElement>, target: FeaturedKit) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || !supabase) return;
+    const file = event.target.files?.[0]; event.target.value = ""; const client = supabase; if (!file || !client || busy) return;
     setBusy(true);
-    try {
-      const path = await uploadKitPackage(file, target.id);
-      const result = await supabase.from("featured_kits").update({ package_storage_path: path, package_size: file.size, mime_type: file.type || "application/zip", updated_at: new Date().toISOString() }).eq("id", target.id);
-      if (result.error) { await supabase.storage.from(ASSET_BUCKET).remove([path]); throw result.error; }
-      if (target.package_storage_path) await supabase.storage.from(ASSET_BUCKET).remove([target.package_storage_path]);
-      setMessage(`${target.name} package uploaded successfully.`);
-      void load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Package upload failed.");
-    } finally {
-      setBusy(false);
-    }
+    try { const path = await uploadKitPackage(file, target.id); const result = await client.from("featured_kits").update({ package_storage_path: path, package_size: file.size, mime_type: file.type || "application/zip", updated_at: new Date().toISOString() }).eq("id", target.id); if (result.error) { await client.storage.from(ASSET_BUCKET).remove([path]); throw result.error; } if (target.package_storage_path) await client.storage.from(ASSET_BUCKET).remove([target.package_storage_path]); setMessage(`${target.name} package uploaded successfully.`); void load(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Package upload failed."); }
+    finally { setBusy(false); }
   }
 
   async function archiveCollection(item: AssetCollection) {
-    if (!supabase || !window.confirm(`Archive ${item.name}? Its assets will remain associated and will not be deleted.`)) return;
-    const result = await supabase.from("asset_collections").update({ archived_at: new Date().toISOString(), is_visible: false, updated_at: new Date().toISOString() }).eq("id", item.id);
-    if (result.error) setMessage(result.error.message); else { setMessage("Collection archived. Assets were retained."); void load(); }
+    const client = supabase; if (!client || busy || !window.confirm(`Archive ${item.name}? Its assets will remain associated and will not be deleted.`)) return;
+    setBusy(true); setMessage(null); try { const result = await client.from("asset_collections").update({ archived_at: new Date().toISOString(), is_visible: false, updated_at: new Date().toISOString() }).eq("id", item.id); if (result.error) throw result.error; setMessage("Collection archived. Assets were retained."); await load(); } catch (error) { setMessage(error instanceof Error ? error.message : "Collection could not be archived."); } finally { setBusy(false); }
   }
 
   async function restoreCollection(item: AssetCollection) {
-    if (!supabase) return;
-    const result = await supabase.from("asset_collections").update({ archived_at: null, is_visible: true, updated_at: new Date().toISOString() }).eq("id", item.id);
-    if (result.error) setMessage(result.error.message); else void load();
+    const client = supabase; if (!client || busy) return; setBusy(true); setMessage(null); try { const result = await client.from("asset_collections").update({ archived_at: null, is_visible: true, updated_at: new Date().toISOString() }).eq("id", item.id); if (result.error) throw result.error; await load(); setMessage("Collection restored."); } catch (error) { setMessage(error instanceof Error ? error.message : "Collection could not be restored."); } finally { setBusy(false); }
   }
 
   const visibleCollections = collections.filter((item) => !item.archived_at);
-  return <section className="mt-8 rounded-2xl border border-border bg-white shadow-card">
-    <div className="border-b border-border p-6 md:p-8"><p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Asset Library</p><h2 className="mt-2 font-display text-3xl font-bold tracking-[-0.04em]">Curate the company archive</h2><div className="mt-6 flex gap-2"><button type="button" onClick={() => setTab("kits")} className={`rounded-pill px-4 py-2 text-sm font-bold ${tab === "kits" ? "bg-foreground text-white" : "bg-surface text-muted"}`}>Featured kits</button><button type="button" onClick={() => setTab("collections")} className={`rounded-pill px-4 py-2 text-sm font-bold ${tab === "collections" ? "bg-foreground text-white" : "bg-surface text-muted"}`}>Collections</button></div></div>
-    {tab === "kits" ? <div className="p-6 md:p-8"><form onSubmit={(event) => void saveKit(event)} className="grid gap-4 rounded-xl bg-surface p-5 md:grid-cols-2"><label className="text-sm font-semibold">Title<input className={field} value={kitDraft.name} onChange={(event) => setKitDraft({ ...kitDraft, name: event.target.value })} required /></label><label className="text-sm font-semibold">Display order<input type="number" min="1" className={field} value={kitDraft.display_order} onChange={(event) => setKitDraft({ ...kitDraft, display_order: Number(event.target.value) })} /></label><label className="text-sm font-semibold md:col-span-2">Description<textarea className={`${field} h-24 py-3`} value={kitDraft.description} onChange={(event) => setKitDraft({ ...kitDraft, description: event.target.value })} /></label><label className="text-sm font-semibold">Accent<select className={field} value={kitDraft.accent} onChange={(event) => setKitDraft({ ...kitDraft, accent: event.target.value })}>{accents.map((accent) => <option key={accent}>{accent}</option>)}</select></label><label className="flex items-center gap-2 pt-7 text-sm font-semibold"><input type="checkbox" checked={kitDraft.is_visible} onChange={(event) => setKitDraft({ ...kitDraft, is_visible: event.target.checked })} /> Published</label><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={kitDraft.is_featured} onChange={(event) => setKitDraft({ ...kitDraft, is_featured: event.target.checked })} /> Featured</label><div className="md:col-span-2"><CollectionMultiPicker collections={visibleCollections} selectedIds={kitCollections} onChange={setKitCollections} /></div><Button className="md:col-span-2" disabled={busy}><PackagePlus className="h-4 w-4" /> {editingKit ? "Save kit" : "Create kit"}</Button></form><div className="mt-6 space-y-3">{kits.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"><Archive className="h-5 w-5" /><div className="min-w-40 flex-1"><p className="font-semibold">{item.name}</p><p className="text-xs text-muted">{item.package_size ? formatFileSize(item.package_size) : "No ZIP package"} · {item.is_visible ? "Published" : "Hidden"}</p></div><button type="button" onClick={() => startKit(item)} className="rounded-pill bg-surface px-3 py-2 text-xs font-bold">Edit</button><label className="inline-flex cursor-pointer items-center gap-2 rounded-pill bg-surface px-4 py-2 text-sm font-semibold"><Upload className="h-4 w-4" /> {item.package_storage_path ? "Replace ZIP" : "Upload ZIP"}<input type="file" accept=".zip,application/zip" className="hidden" onChange={(event) => void uploadPackage(event, item)} /></label></div>)}</div></div> : <div className="p-6 md:p-8"><form onSubmit={(event) => void saveCollection(event)} className="grid gap-4 rounded-xl bg-surface p-5 md:grid-cols-2"><label className="text-sm font-semibold">Name<input className={field} value={collectionDraft.name} onChange={(event) => setCollectionDraft({ ...collectionDraft, name: event.target.value })} required /></label><label className="text-sm font-semibold">Display order<input type="number" min="1" className={field} value={collectionDraft.display_order} onChange={(event) => setCollectionDraft({ ...collectionDraft, display_order: Number(event.target.value) })} /></label><label className="text-sm font-semibold md:col-span-2">Description<textarea className={`${field} h-24 py-3`} value={collectionDraft.description ?? ""} onChange={(event) => setCollectionDraft({ ...collectionDraft, description: event.target.value })} /></label><label className="text-sm font-semibold">Accent<select className={field} value={collectionDraft.accent} onChange={(event) => setCollectionDraft({ ...collectionDraft, accent: event.target.value })}>{accents.map((accent) => <option key={accent}>{accent}</option>)}</select></label><label className="flex items-center gap-2 pt-7 text-sm font-semibold"><input type="checkbox" checked={collectionDraft.is_visible} onChange={(event) => setCollectionDraft({ ...collectionDraft, is_visible: event.target.checked })} /> Published</label><Button className="md:col-span-2" disabled={busy}><FolderPlus className="h-4 w-4" /> {editingCollection ? "Save collection" : "Create collection"}</Button></form><div className="mt-6 space-y-3">{collections.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"><span className="font-display font-bold">{String(item.display_order).padStart(2, "0")}</span><div className="flex-1"><p className="font-semibold">{item.name}</p><p className="text-xs text-muted">{item.archived_at ? "Archived" : item.is_visible ? "Published" : "Hidden"}</p></div><button type="button" onClick={() => startCollection(item)} className="rounded-pill bg-surface px-3 py-2 text-xs font-bold">Edit</button>{item.archived_at ? <button type="button" onClick={() => void restoreCollection(item)} className="inline-flex items-center gap-1 rounded-pill bg-surface px-3 py-2 text-xs font-bold"><RotateCcw className="h-3.5 w-3.5" /> Restore</button> : <button type="button" onClick={() => void archiveCollection(item)} className="inline-flex items-center gap-1 rounded-pill bg-surface px-3 py-2 text-xs font-bold"><Trash2 className="h-3.5 w-3.5" /> Archive</button>}</div>)}</div></div>}
-    {message ? <p className="border-t border-border px-6 py-4 text-sm" role="status">{message}</p> : null}<div className="border-t border-border px-6 pb-6 md:px-8"><AssetUploadPanel /></div>
-  </section>;
+  return <section className="mt-8 rounded-2xl border border-border bg-white shadow-card"><div className="border-b border-border p-6 md:p-8"><p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Asset Library</p><h2 className="mt-2 font-display text-3xl font-bold tracking-[-0.04em]">Curate the company archive</h2><div className="mt-6 flex flex-wrap gap-2"><button type="button" onClick={() => setTab("kits")} className={`rounded-pill px-4 py-2 text-sm font-bold ${tab === "kits" ? "bg-foreground text-white" : "bg-surface text-muted"}`}>Featured kits</button><button type="button" onClick={() => setTab("collections")} className={`rounded-pill px-4 py-2 text-sm font-bold ${tab === "collections" ? "bg-foreground text-white" : "bg-surface text-muted"}`}>Collections</button></div></div>{tab === "kits" ? <div className="p-6 md:p-8"><form onSubmit={(event) => void saveKit(event)} className="grid gap-4 rounded-xl bg-surface p-5 md:grid-cols-2"><label className="text-sm font-semibold">Title<input className={field} value={kitDraft.name} onChange={(event) => setKitDraft({ ...kitDraft, name: event.target.value })} required /></label><label className="text-sm font-semibold">Display order<input type="number" min="1" className={field} value={kitDraft.display_order} onChange={(event) => setKitDraft({ ...kitDraft, display_order: Number(event.target.value) })} /></label><label className="text-sm font-semibold md:col-span-2">Description<textarea className={`${field} h-24 py-3`} value={kitDraft.description} onChange={(event) => setKitDraft({ ...kitDraft, description: event.target.value })} /></label><label className="text-sm font-semibold">Accent<select className={field} value={kitDraft.accent} onChange={(event) => setKitDraft({ ...kitDraft, accent: event.target.value })}>{accents.map((accent) => <option key={accent}>{accent}</option>)}</select></label><label className="flex items-center gap-2 pt-7 text-sm font-semibold"><input type="checkbox" checked={kitDraft.is_visible} onChange={(event) => setKitDraft({ ...kitDraft, is_visible: event.target.checked })} /> Published</label><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={kitDraft.is_featured} onChange={(event) => setKitDraft({ ...kitDraft, is_featured: event.target.checked })} /> Featured</label><div className="md:col-span-2"><CollectionMultiPicker collections={visibleCollections} selectedIds={kitCollections} onChange={setKitCollections} /></div><Button className="md:col-span-2" disabled={busy}><PackagePlus className="h-4 w-4" /> {editingKit ? "Save kit" : "Create kit"}</Button></form><div className="mt-6 space-y-3">{kits.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"><Archive className="h-5 w-5" /><div className="min-w-40 flex-1"><p className="font-semibold">{item.name}</p><p className="text-xs text-muted">{item.package_size ? formatFileSize(item.package_size) : "No ZIP package"} · {item.is_visible ? "Published" : "Hidden"}</p></div><button type="button" disabled={busy} onClick={() => startKit(item)} className="rounded-pill bg-surface px-3 py-2 text-xs font-bold">Edit</button><label className={`inline-flex items-center gap-2 rounded-pill bg-surface px-4 py-2 text-sm font-semibold ${busy ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}><Upload className="h-4 w-4" /> {item.package_storage_path ? "Replace ZIP" : "Upload ZIP"}<input type="file" accept=".zip,application/zip" disabled={busy} className="hidden" onChange={(event) => void uploadPackage(event, item)} /></label></div>)}</div></div> : <div className="p-6 md:p-8"><form onSubmit={(event) => void saveCollection(event)} className="grid gap-4 rounded-xl bg-surface p-5 md:grid-cols-2"><label className="text-sm font-semibold">Name<input className={field} value={collectionDraft.name} onChange={(event) => setCollectionDraft({ ...collectionDraft, name: event.target.value })} required /></label><label className="text-sm font-semibold">Display order<input type="number" min="1" className={field} value={collectionDraft.display_order} onChange={(event) => setCollectionDraft({ ...collectionDraft, display_order: Number(event.target.value) })} /></label><label className="text-sm font-semibold md:col-span-2">Description<textarea className={`${field} h-24 py-3`} value={collectionDraft.description ?? ""} onChange={(event) => setCollectionDraft({ ...collectionDraft, description: event.target.value })} /></label><label className="text-sm font-semibold">Accent<select className={field} value={collectionDraft.accent} onChange={(event) => setCollectionDraft({ ...collectionDraft, accent: event.target.value })}>{accents.map((accent) => <option key={accent}>{accent}</option>)}</select></label><label className="flex items-center gap-2 pt-7 text-sm font-semibold"><input type="checkbox" checked={collectionDraft.is_visible} onChange={(event) => setCollectionDraft({ ...collectionDraft, is_visible: event.target.checked })} /> Published</label><Button className="md:col-span-2" disabled={busy}><FolderPlus className="h-4 w-4" /> {editingCollection ? "Save collection" : "Create collection"}</Button></form><div className="mt-6 space-y-3">{collections.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"><span className="font-display font-bold">{String(item.display_order).padStart(2, "0")}</span><div className="min-w-0 flex-1"><p className="font-semibold">{item.name}</p><p className="text-xs text-muted">{item.archived_at ? "Archived" : item.is_visible ? "Published" : "Hidden"}</p></div><button type="button" disabled={busy} onClick={() => startCollection(item)} className="rounded-pill bg-surface px-3 py-2 text-xs font-bold">Edit</button>{item.archived_at ? <button type="button" disabled={busy} onClick={() => void restoreCollection(item)} className="inline-flex items-center gap-1 rounded-pill bg-surface px-3 py-2 text-xs font-bold"><RotateCcw className="h-3.5 w-3.5" /> Restore</button> : <button type="button" disabled={busy} onClick={() => void archiveCollection(item)} className="inline-flex items-center gap-1 rounded-pill bg-surface px-3 py-2 text-xs font-bold"><Trash2 className="h-3.5 w-3.5" /> Archive</button>}</div>)}</div></div>}{message ? <p className="border-t border-border px-6 py-4 text-sm" role="status">{message}</p> : null}<div className="border-t border-border px-6 pb-6 md:px-8"><AssetUploadPanel /></div></section>;
 }
