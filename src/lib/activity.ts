@@ -1,14 +1,30 @@
 import { supabase } from "./supabase";
 import type { EntityType } from "@/types/domain";
 
-export async function recordActivity(entityType: EntityType, entityId: string, eventType: string, metadata: Record<string, unknown> = {}) {
+/**
+ * Records an activity event via the trusted `record_activity` RPC.
+ * Actor identity is pinned server-side to auth.uid() – the client
+ * cannot spoof it.  Allowed event types are validated server-side.
+ * Fails silently so activity recording never breaks the main flow.
+ */
+export async function recordActivity(
+  entityType: EntityType,
+  entityId: string,
+  eventType: string,
+  metadata: Record<string, unknown> = {},
+): Promise<void> {
   if (!supabase) return;
-  const { data } = await supabase.auth.getUser();
-  await supabase.from("activity_events").insert({
-    entity_type: entityType,
-    entity_id: entityId,
-    actor_id: data.user?.id ?? null,
-    event_type: eventType,
-    metadata,
-  });
+  try {
+    const { error } = await supabase.rpc("record_activity", {
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+      p_event_type: eventType,
+      p_metadata: metadata,
+    });
+    if (error) {
+      console.warn("[activity] Failed to record event:", eventType, error.message);
+    }
+  } catch (err) {
+    console.warn("[activity] Unexpected error recording event:", eventType, err);
+  }
 }

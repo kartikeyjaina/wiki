@@ -11,7 +11,6 @@ import { supabase } from "@/lib/supabase";
 import { useEntityFollow, useRecentlyViewed, useSavedAsset } from "@/hooks/useWorkspaceFeatures";
 import type { AssetVersion } from "@/types/domain";
 import { useProfile } from "@/hooks/useProfile";
-import { nextAssetVersion } from "@/lib/asset-version";
 import { recordActivity } from "@/lib/activity";
 
 export function AssetDetail() {
@@ -43,7 +42,7 @@ export function AssetDetail() {
       .then(({ data }) => setCollectionName(data?.name ?? null));
   }, [asset?.collection_id]);
 
-  // Load preview URL using signed URL (not raw storage path)
+  // Load preview URL using signed URL
   useEffect(() => {
     setPreviewUrl(null);
     setPreviewError(false);
@@ -53,7 +52,6 @@ export function AssetDetail() {
       .catch(() => setPreviewError(true));
   }, [asset?.storage_path]);
 
-  // Load versions
   const loadVersions = async () => {
     if (!supabase || !asset?.id) return;
     setVersionsLoading(true);
@@ -80,54 +78,38 @@ export function AssetDetail() {
     setVersionError(null);
     let path: string | null = null;
     try {
+      // Upload to storage first
       path = await uploadAssetFile(file, `assets/${asset.id}/versions`);
-      const version = nextAssetVersion(versions);
 
-      // Insert version row
-      const versionResult = await supabase
-        .from("asset_versions")
-        .insert({
-          asset_id: asset.id,
-          version,
-          storage_path: path,
-          created_by: profile.id,
-          notes: "Replacement upload",
-        })
-        .select(
-          "*, creator:profiles!asset_versions_created_by_fkey(id, display_name, role, avatar_url)",
-        )
-        .single();
+      // Transactional DB-side version creation via trusted RPC
+      // This locks the asset row, increments version atomically, inserts version row,
+      // and updates the asset – all in one transaction.
+      const { data: newVersion, error: rpcError } = await supabase.rpc(
+        "create_asset_version",
+        {
+          p_asset_id: asset.id,
+          p_storage_path: path,
+          p_notes: "Replacement upload",
+          p_actor_id: profile.id,
+        },
+      );
 
-      if (versionResult.error) throw versionResult.error;
+      if (rpcError) throw rpcError;
 
-      // Update asset row atomically
-      const assetResult = await supabase
-        .from("assets")
-        .update({
-          version,
-          storage_path: path,
-          updated_at: new Date().toISOString(),
-          metadata: {
-            ...(asset.metadata ?? {}),
-            original_name: file.name,
-            mime_type: file.type,
-            size: file.size,
-          },
-        })
-        .eq("id", asset.id);
+      await recordActivity("asset", asset.id, "asset_version_uploaded", {
+        version: newVersion,
+      });
 
-      if (assetResult.error) throw assetResult.error;
-
-      await recordActivity("asset", asset.id, "asset_version_uploaded", { version });
-
-      setVersions((items) => [versionResult.data as AssetVersion, ...items]);
+      await loadVersions();
       await reloadAssets();
-    } catch {
-      // Roll back storage upload if DB insert failed
-      if (path) {
+    } catch (err) {
+      // Roll back storage upload if the DB transaction failed
+      if (path && supabase) {
         await supabase.storage.from("brand-assets").remove([path]);
       }
-      setVersionError("The replacement version could not be saved.");
+      setVersionError(
+        err instanceof Error ? err.message : "The replacement version could not be saved.",
+      );
     } finally {
       setUploadingVersion(false);
     }
@@ -254,6 +236,7 @@ export function AssetDetail() {
                 className="sr-only"
                 disabled={uploadingVersion}
                 onChange={(event) => void uploadVersion(event.target.files?.[0])}
+                aria-label="Upload replacement version"
               />
             </label>
           ) : null}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/types/domain";
+import { recordActivity } from "@/lib/activity";
 
 export interface ProjectMember {
   project_id: string;
@@ -8,6 +9,30 @@ export interface ProjectMember {
   role: "member" | "manager";
   created_at: string;
   profile: Profile | null;
+}
+
+/** Send a notification via the trusted server-side RPC. */
+async function notify(
+  recipientId: string,
+  type: string,
+  title: string,
+  body: string | null,
+  projectId: string,
+): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.rpc("create_notification", {
+      p_recipient_id: recipientId,
+      p_type: type,
+      p_title: title,
+      p_body: body,
+      p_entity_type: "project",
+      p_entity_id: projectId,
+      p_href: `/projects/${projectId}`,
+    });
+  } catch {
+    // Notification failures must not break the main operation
+  }
 }
 
 export function useProjectMembers(projectId: string) {
@@ -49,7 +74,6 @@ export function useProjectMembers(projectId: string) {
       .insert({ project_id: projectId, user_id: userId, role });
     if (result.error) throw result.error;
 
-    // Fetch the added member's display name for rich activity metadata
     const { data: profileData } = await supabase
       .from("profiles")
       .select("display_name")
@@ -57,26 +81,15 @@ export function useProjectMembers(projectId: string) {
       .single();
     const displayName = profileData?.display_name ?? null;
 
-    const { data: auth } = await supabase.auth.getUser();
-    if (auth.user) {
-      await supabase.from("activity_events").insert({
-        entity_type: "project",
-        entity_id: projectId,
-        actor_id: auth.user.id,
-        event_type: "project_member_added",
-        metadata: { user_id: userId, role, display_name: displayName },
-      });
-      if (userId !== auth.user.id) {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          type: "project_member_added",
-          title: "You were added to a project",
-          entity_type: "project",
-          entity_id: projectId,
-          href: `/projects/${projectId}`,
-        });
-      }
-    }
+    await recordActivity("project", projectId, "project_member_added", {
+      user_id: userId,
+      role,
+      display_name: displayName,
+    });
+
+    // Notify the added user via secure RPC (skips self-notification automatically)
+    await notify(userId, "project_member_added", "You were added to a project", null, projectId);
+
     await load();
   }
 
@@ -89,7 +102,6 @@ export function useProjectMembers(projectId: string) {
       .eq("user_id", userId);
     if (result.error) throw result.error;
 
-    // Fetch display name for rich activity metadata
     const { data: profileData } = await supabase
       .from("profiles")
       .select("display_name")
@@ -97,34 +109,26 @@ export function useProjectMembers(projectId: string) {
       .single();
     const displayName = profileData?.display_name ?? null;
 
-    const { data: auth } = await supabase.auth.getUser();
-    if (auth.user) {
-      await supabase.from("activity_events").insert({
-        entity_type: "project",
-        entity_id: projectId,
-        actor_id: auth.user.id,
-        event_type: "project_member_role_changed",
-        metadata: { user_id: userId, role, display_name: displayName },
-      });
-      if (userId !== auth.user.id) {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          type: "project_member_role_changed",
-          title: "Your project role changed",
-          body: `You are now a ${role} on this project.`,
-          entity_type: "project",
-          entity_id: projectId,
-          href: `/projects/${projectId}`,
-        });
-      }
-    }
+    await recordActivity("project", projectId, "project_member_role_changed", {
+      user_id: userId,
+      role,
+      display_name: displayName,
+    });
+
+    await notify(
+      userId,
+      "project_member_role_changed",
+      "Your project role changed",
+      `You are now a ${role} on this project.`,
+      projectId,
+    );
+
     await load();
   }
 
   async function remove(userId: string) {
     if (!supabase) throw new Error("Supabase is not configured.");
 
-    // Capture display name before deleting the row
     const member = members.find((m) => m.user_id === userId);
     const displayName = member?.profile?.display_name ?? null;
 
@@ -135,26 +139,19 @@ export function useProjectMembers(projectId: string) {
       .eq("user_id", userId);
     if (result.error) throw result.error;
 
-    const { data: auth } = await supabase.auth.getUser();
-    if (auth.user) {
-      await supabase.from("activity_events").insert({
-        entity_type: "project",
-        entity_id: projectId,
-        actor_id: auth.user.id,
-        event_type: "project_member_removed",
-        metadata: { user_id: userId, display_name: displayName },
-      });
-      if (userId !== auth.user.id) {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          type: "project_member_removed",
-          title: "You were removed from a project",
-          entity_type: "project",
-          entity_id: projectId,
-          href: `/projects/${projectId}`,
-        });
-      }
-    }
+    await recordActivity("project", projectId, "project_member_removed", {
+      user_id: userId,
+      display_name: displayName,
+    });
+
+    await notify(
+      userId,
+      "project_member_removed",
+      "You were removed from a project",
+      null,
+      projectId,
+    );
+
     await load();
   }
 
