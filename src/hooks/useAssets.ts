@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Asset } from "@/types/domain";
+import { clampPageSize, hasNextPage, pageRange } from "@/lib/pagination";
 
 interface UseAssetsOptions {
   limit?: number;
@@ -9,11 +10,9 @@ interface UseAssetsOptions {
   search?: string;
 }
 
-const DEFAULT_PAGE_SIZE = 40;
-
 export function useAssets(options: UseAssetsOptions = {}) {
-  const { limit, pageSize = DEFAULT_PAGE_SIZE, collectionId, search } = options;
-  const effectivePageSize = Math.max(1, limit ?? pageSize);
+  const { limit, pageSize, collectionId, search } = options;
+  const effectivePageSize = clampPageSize(limit ?? pageSize);
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -30,12 +29,13 @@ export function useAssets(options: UseAssetsOptions = {}) {
 
     setLoading(true);
     setError(null);
+    const { from, to } = pageRange(0, effectivePageSize);
 
     let query = supabase
       .from("assets")
       .select("*, collection:asset_collections(id, name, slug)")
       .order("updated_at", { ascending: false })
-      .range(0, effectivePageSize - 1);
+      .range(from, to);
 
     if (collectionId) query = query.eq("collection_id", collectionId);
 
@@ -46,7 +46,6 @@ export function useAssets(options: UseAssetsOptions = {}) {
     }
 
     const { data, error: loadError } = await query;
-
     if (loadError) {
       setAssets([]);
       setHasMore(false);
@@ -57,7 +56,7 @@ export function useAssets(options: UseAssetsOptions = {}) {
 
     const next = (data ?? []) as Asset[];
     setAssets(next);
-    setHasMore(limit === undefined && next.length === effectivePageSize);
+    setHasMore(limit === undefined && hasNextPage(next.length, effectivePageSize));
     setLoading(false);
   }, [collectionId, effectivePageSize, limit, search]);
 
@@ -66,9 +65,7 @@ export function useAssets(options: UseAssetsOptions = {}) {
 
     setLoadingMore(true);
     setError(null);
-
-    const from = assets.length;
-    const to = from + effectivePageSize - 1;
+    const { from, to } = pageRange(assets.length, effectivePageSize);
     let query = supabase
       .from("assets")
       .select("*, collection:asset_collections(id, name, slug)")
@@ -92,7 +89,7 @@ export function useAssets(options: UseAssetsOptions = {}) {
 
     const next = (data ?? []) as Asset[];
     setAssets((current) => [...current, ...next]);
-    setHasMore(next.length === effectivePageSize);
+    setHasMore(hasNextPage(next.length, effectivePageSize));
     setLoadingMore(false);
   }, [assets.length, collectionId, effectivePageSize, hasMore, loadingMore, search]);
 
@@ -100,13 +97,5 @@ export function useAssets(options: UseAssetsOptions = {}) {
     void load();
   }, [load]);
 
-  return {
-    assets,
-    loading,
-    loadingMore,
-    hasMore,
-    error,
-    reload: load,
-    loadMore,
-  };
+  return { assets, loading, loadingMore, hasMore, error, reload: load, loadMore };
 }
