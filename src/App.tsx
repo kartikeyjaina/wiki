@@ -18,18 +18,14 @@ import { SavedAssets } from "@/pages/SavedAssets";
 import { Profile } from "@/pages/Profile";
 import { People } from "@/pages/People";
 import { Wiki } from "@/pages/Wiki";
+import { NewWikiPage } from "@/pages/NewWikiPage";
 
 export default function App() {
   const { session, loading, configured } = useSession();
   const { isAdmin } = useProfile();
 
-  if (loading) {
-    return <div className="grid min-h-screen place-items-center bg-white font-display text-xl font-bold tracking-[-0.03em]">futurelab wiki</div>;
-  }
-
-  if (configured && !session) {
-    return <Login />;
-  }
+  if (loading) return <div className="grid min-h-screen place-items-center bg-white font-display text-xl font-bold tracking-[-0.03em]">futurelab wiki</div>;
+  if (configured && !session) return <Login />;
 
   return (
     <Routes>
@@ -40,6 +36,7 @@ export default function App() {
         <Route path="saved" element={<SavedAssets />} />
         <Route path="profile" element={<Profile />} />
         <Route path="wiki" element={<Wiki />} />
+        <Route path="wiki/new" element={<NewWikiPage />} />
         <Route path="wiki/:slug" element={<Wiki />} />
         <Route path="collections/:slug" element={<CollectionDetail />} />
         <Route path="ideas" element={<Ideas />} />
