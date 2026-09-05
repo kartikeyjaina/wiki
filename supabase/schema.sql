@@ -260,16 +260,6 @@ create table public.activity_events (
   created_at timestamptz not null default now()
 );
 
-create table public.reputation_events (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  source_type entity_type not null,
-  source_id uuid not null,
-  rule_key text not null,
-  points integer not null,
-  created_at timestamptz not null default now()
-);
-
 create table public.entity_relationships (
   id uuid primary key default gen_random_uuid(),
   from_type entity_type not null,
@@ -411,7 +401,6 @@ alter table public.comments enable row level security;
 alter table public.projects enable row level security;
 alter table public.project_todos enable row level security;
 alter table public.activity_events enable row level security;
-alter table public.reputation_events enable row level security;
 alter table public.entity_relationships enable row level security;
 
 create policy "members can read profiles" on public.profiles for select to authenticated using (true);
@@ -461,8 +450,6 @@ create policy "admins can manage project todos" on public.project_todos for all 
 create policy "members can read activity" on public.activity_events for select to authenticated using (true);
 create policy "members can record own activity" on public.activity_events for insert to authenticated with check (actor_id = auth.uid());
 create policy "admins can manage activity" on public.activity_events for all to authenticated using (public.is_admin()) with check (public.is_admin());
-create policy "members can read reputation" on public.reputation_events for select to authenticated using (true);
-create policy "admins can manage reputation" on public.reputation_events for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "members can read relationships" on public.entity_relationships for select to authenticated using (true);
 create policy "admins can manage relationships" on public.entity_relationships for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
