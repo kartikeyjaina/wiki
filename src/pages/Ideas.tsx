@@ -13,7 +13,6 @@ const tabs: { label: string; mode: LeaderboardMode | "new" | "mine" }[] = [
   { label: "Trending", mode: "trending" },
   { label: "New", mode: "new" },
   { label: "Top", mode: "top" },
-  { label: "Most Discussed", mode: "discussed" },
   { label: "My Ideas", mode: "mine" },
 ];
 
