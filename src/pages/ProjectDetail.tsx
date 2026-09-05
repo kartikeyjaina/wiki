@@ -14,7 +14,7 @@ import { ProjectTodoList } from "@/components/projects/ProjectTodoList";
 import { ProjectMilestones } from "@/components/projects/ProjectMilestones";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { recordActivity } from "@/lib/activity";
-import { useEntityFollow, useRecentlyViewed } from "@/hooks/useWorkspaceFeatures";
+import { useEntityFollow} from "@/hooks/useWorkspaceFeatures";
 import { RelationshipPanel } from "@/components/relationships/RelationshipPanel";
 import { ProjectAttachments } from "@/components/projects/ProjectAttachments";
 import { getProjectHealth, projectHealthLabels, isProjectTransitionAllowed } from "@/lib/project-workflow";
@@ -42,7 +42,6 @@ export function ProjectDetail() {
   const { todos } = useProjectTodos(project?.id ?? "");
   const { milestones } = useProjectMilestones(project?.id);
   const { following, toggle: toggleFollowing } = useEntityFollow("project", project?.id);
-  useRecentlyViewed("project", project?.id);
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");

@@ -13,7 +13,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { ideaStatusLabels, getIdeaTransitions } from "@/lib/idea-workflow";
 import { recordActivity } from "@/lib/activity";
 import { supabase } from "@/lib/supabase";
-import { useEntityFollow, useRecentlyViewed } from "@/hooks/useWorkspaceFeatures";
+import { useEntityFollow} from "@/hooks/useWorkspaceFeatures";
 import { RelationshipPanel } from "@/components/relationships/RelationshipPanel";
 import type { IdeaStatus } from "@/types/domain";
 
@@ -21,7 +21,7 @@ export function IdeaDetail() {
   const { id } = useParams(); const navigate = useNavigate();
   const { ideas, loading, reload } = useIdeas(); const { profile, session } = useProfile(); const { events } = useActivity("idea", id); const { projects } = useProjects();
   const [updating, setUpdating] = useState(false); const [updateError, setUpdateError] = useState<string | null>(null);
-  const idea = ideas.find((item) => item.id === id); const { following, toggle: toggleFollowing } = useEntityFollow("idea", idea?.id); useRecentlyViewed("idea", idea?.id);
+  const idea = ideas.find((item) => item.id === id); const { following, toggle: toggleFollowing } = useEntityFollow("idea", idea?.id);
   if (loading) return <p className="text-sm text-muted">Loading idea...</p>;
   if (!idea) return <EmptyState title="Idea not found." description="Only real submitted ideas appear here." />;
   const currentIdea = idea; const transitions = getIdeaTransitions(currentIdea.status); const canDecide = profile?.role === "admin" || session?.user.id === idea.author_id; const statusEvent = events.find((event) => event.event_type === "status_changed"); const relatedProject = projects.find((project) => project.originating_idea_id === idea.id);
