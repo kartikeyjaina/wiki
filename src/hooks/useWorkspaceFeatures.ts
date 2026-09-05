@@ -99,19 +99,3 @@ export function useSavedAsset(assetId?: string) {
   }
   return { saved, error, toggle };
 }
-
-export function useRecentlyViewed(entityType: EntityType, entityId?: string) {
-  useEffect(() => {
-    if (!supabase || !entityId) return;
-    const client = supabase;
-    const timer = window.setTimeout(() => {
-      void client.auth.getUser().then(({ data, error }) => {
-        if (error || !data.user) return;
-        void client.from("recently_viewed").upsert({ user_id: data.user.id, entity_type: entityType, entity_id: entityId, last_viewed_at: new Date().toISOString() }, { onConflict: "user_id,entity_type,entity_id" }).then(({ error: upsertError }) => {
-          if (upsertError) console.warn("Recently viewed update failed", upsertError);
-        });
-      });
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [entityId, entityType]);
-}

@@ -8,7 +8,7 @@ import { useAssets } from "@/hooks/useAssets";
 import { shortDate } from "@/lib/utils";
 import { ASSET_BUCKET, downloadAsset, getAssetPreviewUrl, uploadAssetFile } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
-import { useEntityFollow, useRecentlyViewed, useSavedAsset } from "@/hooks/useWorkspaceFeatures";
+import { useEntityFollow, useSavedAsset } from "@/hooks/useWorkspaceFeatures";
 import type { AssetVersion } from "@/types/domain";
 import { useProfile } from "@/hooks/useProfile";
 import { recordActivity } from "@/lib/activity";
@@ -20,8 +20,6 @@ export function AssetDetail() {
   const { following, toggle: toggleFollowing } = useEntityFollow("asset", asset?.id);
   const { saved, toggle: toggleSaved } = useSavedAsset(asset?.id);
   const { isAdmin, profile } = useProfile();
-  useRecentlyViewed("asset", asset?.id);
-
   const [collectionName, setCollectionName] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState(false);
